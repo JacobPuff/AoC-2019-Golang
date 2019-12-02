@@ -2,15 +2,14 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 )
 
-func getFuelForFuel(initialFuelAmmount float64) (total float64) {
+func getFuelForFuel(initialFuelAmmount int) (total int) {
 	nextAmount := initialFuelAmmount
 	for nextAmount > 0 {
-		nextAmount = math.Floor(nextAmount/3) - 2
+		nextAmount = (nextAmount / 3) - 2
 		if nextAmount > 0 {
 			total += nextAmount
 		}
@@ -20,17 +19,17 @@ func getFuelForFuel(initialFuelAmmount float64) (total float64) {
 }
 
 func main() {
-	total := 0.0
+	total := 0
 	dataArray := strings.Split(data, "\n")
 	for _, item := range dataArray {
-		moduleMass, _ := strconv.ParseFloat(item, 64)
-		fuelMass := math.Floor(moduleMass/3) - 2
+		moduleMass, _ := strconv.Atoi(item)
+		fuelMass := (moduleMass / 3) - 2
 		if fuelMass > 0 {
 			total += fuelMass
 			total += getFuelForFuel(fuelMass)
 		}
 	}
-	fmt.Printf("%f", total)
+	fmt.Printf(strconv.Itoa(total))
 
 }
 
