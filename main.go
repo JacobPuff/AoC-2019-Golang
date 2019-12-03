@@ -45,7 +45,7 @@ func getFuelForFuel(initialFuelAmmount int) (total int) {
 func day1() {
 	//data is at the bottom of the file
 	total := 0
-	dataArray := strings.Split(data, "\n")
+	dataArray := strings.Split(day1Data, "\n")
 	for _, item := range dataArray {
 		fuelValue, err := strconv.Atoi(item)
 		if err != nil {
@@ -215,7 +215,7 @@ func day3() {
 	fmt.Println("Fewest steps to intersection: ", smollestStepsToIntersection)
 }
 
-const data = `73617
+const day1Data = `73617
 104372
 131825
 85022
