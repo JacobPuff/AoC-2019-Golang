@@ -31,6 +31,7 @@ func main() {
 	var currentPosX int64 = 0
 	var currentPosY int64 = 0
 	var smollestManhattanDistance int64 = math.MaxInt64
+	var smollestStepsToIntersection int = math.MaxInt64
 	var i int64
 
 	for _, wireString := range firstWireDataArray {
@@ -76,12 +77,16 @@ func main() {
 		}
 	}
 
-	for _, firstPoint := range firstPointArray {
-		for _, secondPoint := range secondPointArray {
+	for firstSteps, firstPoint := range firstPointArray {
+		for secondSteps, secondPoint := range secondPointArray {
 			//fmt.Println("fx: ", firstPoint.x, " fy: ", firstPoint.y, " sx: ", secondPoint.x, " sy: ", secondPoint.y)
 			if firstPoint == secondPoint {
 				fmt.Println("found cross point")
 				crossesArray = append(crossesArray, firstPoint)
+				if smollestStepsToIntersection > (firstSteps + secondSteps) {
+					//indexes start at 0, but index 0 is 1 step for both of these, so Im adding two.
+					smollestStepsToIntersection = (firstSteps + secondSteps) + 2
+				}
 			}
 		}
 	}
@@ -93,5 +98,7 @@ func main() {
 			smollestManhattanDistance = currentDistance
 		}
 	}
-	fmt.Println("\n", smollestManhattanDistance)
+
+	fmt.Println("\nclosest point in manhatten distance", smollestManhattanDistance)
+	fmt.Println("Fewest steps to intersection: ", smollestStepsToIntersection)
 }
