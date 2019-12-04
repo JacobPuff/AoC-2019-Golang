@@ -25,6 +25,8 @@ func main() {
 		day2()
 	case 3:
 		day3()
+	case 4:
+		day4()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -213,6 +215,60 @@ func day3() {
 
 	fmt.Println("closest point in manhatten distance", smollestManhattanDistance)
 	fmt.Println("Fewest steps to intersection: ", smollestStepsToIntersection)
+}
+
+func getPassNumForRuleset(beginingRange int, endingRange int, largerGroupRule bool) int {
+	currentNumPass := beginingRange
+	passMeetsCriteriaCount := 0
+	for currentNumPass <= endingRange {
+		neverDecrease := true
+		foundDouble := false
+		strNumPass := strconv.Itoa(currentNumPass)
+		for i := 0; i < len(strNumPass)-1; i++ {
+			if strNumPass[i] > strNumPass[i+1] {
+				neverDecrease = false
+			}
+			if largerGroupRule {
+				if i < len(strNumPass)-2 {
+					if i == 0 {
+						if strNumPass[i] == strNumPass[i+1] && strNumPass[i+1] != strNumPass[i+2] {
+							foundDouble = true
+						}
+					} else {
+						if strNumPass[i] == strNumPass[i+1] && strNumPass[i+1] != strNumPass[i+2] &&
+							strNumPass[i] != strNumPass[i-1] {
+							foundDouble = true
+						}
+					}
+				} else {
+					if strNumPass[i] == strNumPass[i+1] && strNumPass[i] != strNumPass[i-1] {
+						foundDouble = true
+					}
+				}
+			} else {
+				if strNumPass[i] == strNumPass[i+1] {
+					foundDouble = true
+				}
+			}
+		}
+
+		if neverDecrease && foundDouble {
+			passMeetsCriteriaCount++
+		}
+		currentNumPass++
+	}
+	return passMeetsCriteriaCount
+}
+
+func day4() {
+	beginingRange := 256310
+	endingRange := 732736
+	passNumWithoutLargerGroup := getPassNumForRuleset(beginingRange, endingRange, false)
+	fmt.Println("Pass without larger group rule: ", passNumWithoutLargerGroup)
+
+	passNumWithLargerGroup := getPassNumForRuleset(beginingRange, endingRange, true)
+	fmt.Println("Pass with larger group rule: ", passNumWithLargerGroup)
+
 }
 
 const day1Data = `73617
