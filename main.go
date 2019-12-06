@@ -2,8 +2,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 
@@ -404,7 +407,73 @@ func day5() {
 	getResult(inputData)
 }
 
+type Body struct {
+	parent string
+	moons  []string
+}
+
+func (b *Body) setBodyParent(value string) {
+	b.parent = value
+}
+func (b *Body) setBodyMoons(value string) {
+	b.moons = append(b.moons, value)
+}
+
 func day6() {
+	file, err := os.Open("./day2Data.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	day2Data := make(map[string]Body)
+	scanner := bufio.NewScanner(file)
+	var breadthFirstQueue []string
+	var currentBodyName string
+	var directOrbits int64
+	var indirectOrbits int64
+	var edgeBodies int64
+
+	for scanner.Scan() {
+		orbitArr := strings.Split(scanner.Text(), ")")
+		if _, ok := day2Data[orbitArr[0]]; !ok {
+			day2Data[orbitArr[0]] = Body{"", []string{}}
+		}
+
+		if _, ok := day2Data[orbitArr[1]]; !ok {
+			day2Data[orbitArr[1]] = Body{"", []string{}}
+		}
+
+		mapBody := day2Data[orbitArr[0]]
+		mapMoon := day2Data[orbitArr[1]]
+
+		mapBody.setBodyMoons(orbitArr[1])
+		mapMoon.setBodyParent(orbitArr[0])
+
+		day2Data[orbitArr[0]] = mapBody
+		day2Data[orbitArr[1]] = mapMoon
+
+	}
+	fmt.Println(day2Data["NNL"].moons)
+	breadthFirstQueue = append(breadthFirstQueue, "COM")
+	for len(breadthFirstQueue) > 0 {
+		currentBodyName, breadthFirstQueue = breadthFirstQueue[0], breadthFirstQueue[1:]
+		currentBody := day2Data[currentBodyName]
+		//fmt.Println("Name:", currentBodyName, "Parent:", currentBody.parent, "Moons:", currentBody.moons)
+		if len(currentBody.moons) == 0 {
+			edgeBodies++
+		}
+		for _, orbits := range currentBody.moons {
+			breadthFirstQueue = append(breadthFirstQueue, orbits)
+			directOrbits++
+		}
+		currentParent := day2Data[currentBody.parent].parent
+		for currentParent != "" {
+			currentParent = day2Data[currentParent].parent
+			indirectOrbits++
+		}
+	}
+	fmt.Println(directOrbits + indirectOrbits)
 
 }
 
