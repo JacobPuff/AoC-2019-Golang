@@ -419,6 +419,15 @@ func (b *Body) setBodyMoons(value string) {
 	b.moons = append(b.moons, value)
 }
 
+func getStepsToBody(bodyArray []string, bodyToGet string) int {
+	for steps, body := range bodyArray {
+		if body == bodyToGet {
+			return steps
+		}
+	}
+	return -1
+}
+
 func day6() {
 	file, err := os.Open("./day2Data.txt")
 	if err != nil {
@@ -433,6 +442,10 @@ func day6() {
 	var directOrbits int64
 	var indirectOrbits int64
 	var edgeBodies int64
+	var pathBody string
+	var youOrbitArray []string
+	var sanOrbitArray []string
+	var distanceFromYouAndSan int
 
 	for scanner.Scan() {
 		orbitArr := strings.Split(scanner.Text(), ")")
@@ -454,7 +467,6 @@ func day6() {
 		day2Data[orbitArr[1]] = mapMoon
 
 	}
-	fmt.Println(day2Data["NNL"].moons)
 	breadthFirstQueue = append(breadthFirstQueue, "COM")
 	for len(breadthFirstQueue) > 0 {
 		currentBodyName, breadthFirstQueue = breadthFirstQueue[0], breadthFirstQueue[1:]
@@ -467,14 +479,34 @@ func day6() {
 			breadthFirstQueue = append(breadthFirstQueue, orbits)
 			directOrbits++
 		}
-		currentParent := day2Data[currentBody.parent].parent
-		for currentParent != "" {
-			currentParent = day2Data[currentParent].parent
+		indirectOrbitParent := day2Data[currentBody.parent].parent
+		for indirectOrbitParent != "" {
+			indirectOrbitParent = day2Data[indirectOrbitParent].parent
 			indirectOrbits++
 		}
 	}
-	fmt.Println(directOrbits + indirectOrbits)
 
+	pathBody = "YOU"
+	for pathBody != "" {
+		pathBody = day2Data[pathBody].parent
+		youOrbitArray = append(youOrbitArray, pathBody)
+	}
+
+	pathBody = "SAN"
+	for pathBody != "" {
+		pathBody = day2Data[pathBody].parent
+		sanOrbitArray = append(sanOrbitArray, pathBody)
+	}
+
+	for youSteps, youBody := range youOrbitArray {
+		sanSteps := getStepsToBody(sanOrbitArray, youBody)
+		if sanSteps != -1 {
+			distanceFromYouAndSan = youSteps + sanSteps
+			break
+		}
+	}
+	fmt.Println("Direct orbits and indirect orbits:", directOrbits+indirectOrbits)
+	fmt.Println("Distance between you and Santa:", distanceFromYouAndSan)
 }
 
 const day1Data = `73617
