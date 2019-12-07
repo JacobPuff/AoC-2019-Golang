@@ -34,6 +34,8 @@ func main() {
 		day5()
 	case 6:
 		day6()
+	case 7:
+		day7()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -100,10 +102,13 @@ func setParamWithMode(data []int64, mode int64, location int64, value int64) (pa
 }
 
 //Intcode computer
-func getResult(intCodeData []int64) (atZero int64) {
+func getResult(intCodeData []int64, useInput []int64) (output int64) {
+
 	var copiedData = make([]int64, len(intCodeData))
 	copy(copiedData, intCodeData)
 	var currentPos int64 = 0
+	var currentInput int64 = 0
+	var outputReceived bool
 	instruction := copiedData[currentPos]
 	running := true
 
@@ -138,26 +143,31 @@ func getResult(intCodeData []int64) (atZero int64) {
 		}
 
 		if currentOpCode == 3 {
-			fmt.Println("Need number: ")
 			var input int64
-			_, _ = fmt.Scanf("%d", &input)
-			// TODO: Stop people from inputing non-Numbers
+			if len(useInput) == 0 {
+				fmt.Println("Need number: ")
+				_, _ = fmt.Scanf("%d", &input)
+				// TODO: Stop people from inputing non-Numbers
+				fmt.Println("input: ", input)
+			} else {
+				input = useInput[currentInput]
+				currentInput++
+			}
 			result = setParamWithMode(copiedData, mode1, currentPos+1, input)
 			if result == -1 {
 				running = false
 			}
-			fmt.Println("input: ", input)
 			currentPos += 2
 		}
 
 		if currentOpCode == 4 {
-			var output int64
 			if mode1 == 0 {
 				output = copiedData[copiedData[currentPos+1]]
 			} else {
 				output = copiedData[currentPos+1]
 			}
 			fmt.Println("Output: ", output)
+			outputReceived = true
 			currentPos += 2
 		}
 
@@ -218,15 +228,17 @@ func getResult(intCodeData []int64) (atZero int64) {
 		instruction = copiedData[currentPos]
 	}
 
-	atZero = copiedData[0]
-	return atZero
+	if !outputReceived {
+		output = copiedData[0]
+	}
+	return output
 }
 
 func day2() {
 	var intCodeData = []int64{1, 12, 2, 3, 1, 1, 2, 3, 1, 3, 4, 3, 1, 5, 0, 3, 2, 13, 1, 19, 1, 5, 19, 23, 2, 10, 23, 27, 1, 27, 5, 31, 2, 9, 31, 35, 1, 35, 5, 39, 2, 6, 39, 43, 1, 43, 5, 47, 2, 47, 10, 51, 2, 51, 6, 55, 1, 5, 55, 59, 2, 10, 59, 63, 1, 63, 6, 67, 2, 67, 6, 71, 1, 71, 5, 75, 1, 13, 75, 79, 1, 6, 79, 83, 2, 83, 13, 87, 1, 87, 6, 91, 1, 10, 91, 95, 1, 95, 9, 99, 2, 99, 13, 103, 1, 103, 6, 107, 2, 107, 6, 111, 1, 111, 2, 115, 1, 115, 13, 0, 99, 2, 0, 14, 0}
 
 	//Gets result for initial data
-	intCodeDataResultAtZero := getResult(intCodeData)
+	intCodeDataResultAtZero := getResult(intCodeData, []int64{})
 	fmt.Println("initial result at zero: ", intCodeDataResultAtZero)
 
 	//Part 2 is what the copiedData is for, so that it can test a whole bunch of nouns and verbs
@@ -236,7 +248,7 @@ func day2() {
 		for verb = 1; verb <= 99; verb++ {
 			intCodeData[1] = noun
 			intCodeData[2] = verb
-			if getResult(intCodeData) == 19690720 {
+			if getResult(intCodeData, []int64{}) == 19690720 {
 				fmt.Println("Noun and verb for result 19690720:")
 				fmt.Println("  noun: ", intCodeData[1])
 				fmt.Println("  verb: ", intCodeData[2])
@@ -404,7 +416,7 @@ func day5() {
 	//inputData := []int64{3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31, 1106, 0, 36, 98, 0, 0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104, 999, 1105, 1, 46, 1101, 1000, 1, 20, 4, 20, 1105, 1, 46, 98, 99}
 	// Test data. if input not 0 it prints 1, if input 0 it prints 0
 	//inputData := []int64{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9}
-	getResult(inputData)
+	getResult(inputData, []int64{})
 }
 
 type Body struct {
@@ -507,6 +519,52 @@ func day6() {
 	}
 	fmt.Println("Direct orbits and indirect orbits:", directOrbits+indirectOrbits)
 	fmt.Println("Distance between you and Santa:", distanceFromYouAndSan)
+}
+
+func getValidPhaseSequences(initial []int64) (allCombos [][]int64) {
+	var switchAllItemsPastPoint func([]int64, int64)
+	switchAllItemsPastPoint = func(arr []int64, index int64) {
+		if index == int64(len(arr)) {
+			allCombos = append(allCombos, append([]int64{}, arr...))
+		} else {
+			for i := index; i < int64(len(initial)); i++ {
+				arr[index], arr[i] = arr[i], arr[index]
+				switchAllItemsPastPoint(arr, index+1)
+				arr[index], arr[i] = arr[i], arr[index]
+			}
+		}
+	}
+	switchAllItemsPastPoint(initial, 0)
+
+	return allCombos
+}
+
+func day7() {
+	day7Data := []int64{3, 8, 1001, 8, 10, 8, 105, 1, 0, 0, 21, 30, 55, 80, 101, 118, 199, 280, 361, 442, 99999, 3, 9, 101, 4, 9, 9, 4, 9, 99, 3, 9, 101, 4, 9, 9, 1002, 9, 4, 9, 101, 4, 9, 9, 1002, 9, 5, 9, 1001, 9, 2, 9, 4, 9, 99, 3, 9, 101, 5, 9, 9, 1002, 9, 2, 9, 101, 3, 9, 9, 102, 4, 9, 9, 1001, 9, 2, 9, 4, 9, 99, 3, 9, 102, 2, 9, 9, 101, 5, 9, 9, 102, 3, 9, 9, 101, 3, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 2, 9, 102, 4, 9, 9, 1001, 9, 3, 9, 4, 9, 99, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 99, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99}
+	//Test data. Max thruster signal should be 43210 from phase setting sequence 43210
+	//day7Data := []int64{3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0}
+	//Test data. Max thruster signal should be 54321 from phase setting sequence 01234
+	//day7Data := []int64{3, 23, 3, 24, 1002, 24, 10, 24, 1002, 23, -1, 23, 101, 5, 23, 23, 1, 24, 23, 23, 4, 23, 99, 0, 0}
+	firstPhaseSettings := []int64{0, 1, 2, 3, 4}
+	firstValidSequences := getValidPhaseSequences(firstPhaseSettings)
+
+	var lastOutput int64 = 0
+	var largestOutput int64 = 0
+	var bestSequence []int64
+	for _, sequence := range firstValidSequences {
+		for _, setting := range sequence {
+			lastOutput = getResult(day7Data, []int64{setting, lastOutput})
+
+		}
+		if lastOutput > largestOutput {
+			largestOutput = lastOutput
+			bestSequence = sequence
+		}
+		lastOutput = 0
+	}
+
+	fmt.Println("largestOutput:", largestOutput)
+	fmt.Println(bestSequence)
 }
 
 const day1Data = `73617
