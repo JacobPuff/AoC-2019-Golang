@@ -101,14 +101,15 @@ func setParamWithMode(data []int64, mode int64, location int64, value int64) (pa
 	return 0
 }
 
+type inputHandler func() int64
+type outputHandler func(int64)
+
 //Intcode computer
-func getResult(intCodeData []int64, useInput []int64) (output int64) {
+func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandler) int64 {
 
 	var copiedData = make([]int64, len(intCodeData))
 	copy(copiedData, intCodeData)
 	var currentPos int64 = 0
-	var currentInput int64 = 0
-	var outputReceived bool
 	instruction := copiedData[currentPos]
 	running := true
 
@@ -143,16 +144,7 @@ func getResult(intCodeData []int64, useInput []int64) (output int64) {
 		}
 
 		if currentOpCode == 3 {
-			var input int64
-			if len(useInput) == 0 {
-				fmt.Println("Need number: ")
-				_, _ = fmt.Scanf("%d", &input)
-				// TODO: Stop people from inputing non-Numbers
-				fmt.Println("input: ", input)
-			} else {
-				input = useInput[currentInput]
-				currentInput++
-			}
+			var input int64 = getInput()
 			result = setParamWithMode(copiedData, mode1, currentPos+1, input)
 			if result == -1 {
 				running = false
@@ -161,13 +153,8 @@ func getResult(intCodeData []int64, useInput []int64) (output int64) {
 		}
 
 		if currentOpCode == 4 {
-			if mode1 == 0 {
-				output = copiedData[copiedData[currentPos+1]]
-			} else {
-				output = copiedData[currentPos+1]
-			}
-			fmt.Println("Output: ", output)
-			outputReceived = true
+			output := getParamWithMode(copiedData, mode1, currentPos+1)
+			sendOutput(output)
 			currentPos += 2
 		}
 
@@ -227,18 +214,26 @@ func getResult(intCodeData []int64, useInput []int64) (output int64) {
 
 		instruction = copiedData[currentPos]
 	}
+	return copiedData[0]
+}
 
-	if !outputReceived {
-		output = copiedData[0]
-	}
-	return output
+func getUserInput() int64 {
+	fmt.Println("Need number: ")
+	var input int64
+	_, _ = fmt.Scanf("%d", &input)
+	// TODO: Stop people from inputing non-Numbers
+	return input
+}
+
+func printOutput(output int64) {
+	fmt.Println("Output:", output)
 }
 
 func day2() {
 	var intCodeData = []int64{1, 12, 2, 3, 1, 1, 2, 3, 1, 3, 4, 3, 1, 5, 0, 3, 2, 13, 1, 19, 1, 5, 19, 23, 2, 10, 23, 27, 1, 27, 5, 31, 2, 9, 31, 35, 1, 35, 5, 39, 2, 6, 39, 43, 1, 43, 5, 47, 2, 47, 10, 51, 2, 51, 6, 55, 1, 5, 55, 59, 2, 10, 59, 63, 1, 63, 6, 67, 2, 67, 6, 71, 1, 71, 5, 75, 1, 13, 75, 79, 1, 6, 79, 83, 2, 83, 13, 87, 1, 87, 6, 91, 1, 10, 91, 95, 1, 95, 9, 99, 2, 99, 13, 103, 1, 103, 6, 107, 2, 107, 6, 111, 1, 111, 2, 115, 1, 115, 13, 0, 99, 2, 0, 14, 0}
 
 	//Gets result for initial data
-	intCodeDataResultAtZero := getResult(intCodeData, []int64{})
+	intCodeDataResultAtZero := intComp(intCodeData, getUserInput, printOutput)
 	fmt.Println("initial result at zero: ", intCodeDataResultAtZero)
 
 	//Part 2 is what the copiedData is for, so that it can test a whole bunch of nouns and verbs
@@ -248,7 +243,7 @@ func day2() {
 		for verb = 1; verb <= 99; verb++ {
 			intCodeData[1] = noun
 			intCodeData[2] = verb
-			if getResult(intCodeData, []int64{}) == 19690720 {
+			if intComp(intCodeData, getUserInput, printOutput) == 19690720 {
 				fmt.Println("Noun and verb for result 19690720:")
 				fmt.Println("  noun: ", intCodeData[1])
 				fmt.Println("  verb: ", intCodeData[2])
@@ -416,7 +411,7 @@ func day5() {
 	//inputData := []int64{3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31, 1106, 0, 36, 98, 0, 0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104, 999, 1105, 1, 46, 1101, 1000, 1, 20, 4, 20, 1105, 1, 46, 98, 99}
 	// Test data. if input not 0 it prints 1, if input 0 it prints 0
 	//inputData := []int64{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9}
-	getResult(inputData, []int64{})
+	intComp(inputData, getUserInput, printOutput)
 }
 
 type Body struct {
@@ -441,13 +436,13 @@ func getStepsToBody(bodyArray []string, bodyToGet string) int {
 }
 
 func day6() {
-	file, err := os.Open("./day2Data.txt")
+	file, err := os.Open("./day6Data.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
 
-	day2Data := make(map[string]Body)
+	day6Data := make(map[string]Body)
 	scanner := bufio.NewScanner(file)
 	var breadthFirstQueue []string
 	var currentBodyName string
@@ -461,28 +456,28 @@ func day6() {
 
 	for scanner.Scan() {
 		orbitArr := strings.Split(scanner.Text(), ")")
-		if _, ok := day2Data[orbitArr[0]]; !ok {
-			day2Data[orbitArr[0]] = Body{"", []string{}}
+		if _, ok := day6Data[orbitArr[0]]; !ok {
+			day6Data[orbitArr[0]] = Body{"", []string{}}
 		}
 
-		if _, ok := day2Data[orbitArr[1]]; !ok {
-			day2Data[orbitArr[1]] = Body{"", []string{}}
+		if _, ok := day6Data[orbitArr[1]]; !ok {
+			day6Data[orbitArr[1]] = Body{"", []string{}}
 		}
 
-		mapBody := day2Data[orbitArr[0]]
-		mapMoon := day2Data[orbitArr[1]]
+		mapBody := day6Data[orbitArr[0]]
+		mapMoon := day6Data[orbitArr[1]]
 
 		mapBody.setBodyMoons(orbitArr[1])
 		mapMoon.setBodyParent(orbitArr[0])
 
-		day2Data[orbitArr[0]] = mapBody
-		day2Data[orbitArr[1]] = mapMoon
+		day6Data[orbitArr[0]] = mapBody
+		day6Data[orbitArr[1]] = mapMoon
 
 	}
 	breadthFirstQueue = append(breadthFirstQueue, "COM")
 	for len(breadthFirstQueue) > 0 {
 		currentBodyName, breadthFirstQueue = breadthFirstQueue[0], breadthFirstQueue[1:]
-		currentBody := day2Data[currentBodyName]
+		currentBody := day6Data[currentBodyName]
 		//fmt.Println("Name:", currentBodyName, "Parent:", currentBody.parent, "Moons:", currentBody.moons)
 		if len(currentBody.moons) == 0 {
 			edgeBodies++
@@ -491,22 +486,22 @@ func day6() {
 			breadthFirstQueue = append(breadthFirstQueue, orbits)
 			directOrbits++
 		}
-		indirectOrbitParent := day2Data[currentBody.parent].parent
+		indirectOrbitParent := day6Data[currentBody.parent].parent
 		for indirectOrbitParent != "" {
-			indirectOrbitParent = day2Data[indirectOrbitParent].parent
+			indirectOrbitParent = day6Data[indirectOrbitParent].parent
 			indirectOrbits++
 		}
 	}
 
 	pathBody = "YOU"
 	for pathBody != "" {
-		pathBody = day2Data[pathBody].parent
+		pathBody = day6Data[pathBody].parent
 		youOrbitArray = append(youOrbitArray, pathBody)
 	}
 
 	pathBody = "SAN"
 	for pathBody != "" {
-		pathBody = day2Data[pathBody].parent
+		pathBody = day6Data[pathBody].parent
 		sanOrbitArray = append(sanOrbitArray, pathBody)
 	}
 
@@ -539,32 +534,135 @@ func getValidPhaseSequences(initial []int64) (allCombos [][]int64) {
 	return allCombos
 }
 
+func getIOHandlersForChannel(inChannel chan int64, outChannel chan int64, setting int64) (inputHandler, outputHandler, func() int64) {
+	var lastOutput int64
+	var sentSetting bool = false
+	in := func() int64 {
+		if !sentSetting {
+			sentSetting = true
+			return setting
+		}
+		toReturn := <-inChannel
+		return toReturn
+	}
+	out := func(output int64) {
+		lastOutput = output
+		outChannel <- output
+	}
+
+	getLastOutput := func() int64 {
+		return lastOutput
+	}
+
+	return in, out, getLastOutput
+}
+
+func getIOHandlersForOneRun(setting int64, input int64) (inputHandler, outputHandler, func() int64) {
+	var sentSetting bool = false
+	var lastOutput int64 = 0
+	in := func() int64 {
+		if !sentSetting {
+			sentSetting = true
+			return setting
+		}
+		return input
+	}
+
+	out := func(output int64) {
+		lastOutput = output
+	}
+
+	getOutput := func() int64 {
+		return lastOutput
+	}
+	return in, out, getOutput
+}
+
+func runAmp(data []int64, in inputHandler, out outputHandler, finished chan bool) {
+	intComp(data, in, out)
+	finished <- true
+}
+
 func day7() {
 	day7Data := []int64{3, 8, 1001, 8, 10, 8, 105, 1, 0, 0, 21, 30, 55, 80, 101, 118, 199, 280, 361, 442, 99999, 3, 9, 101, 4, 9, 9, 4, 9, 99, 3, 9, 101, 4, 9, 9, 1002, 9, 4, 9, 101, 4, 9, 9, 1002, 9, 5, 9, 1001, 9, 2, 9, 4, 9, 99, 3, 9, 101, 5, 9, 9, 1002, 9, 2, 9, 101, 3, 9, 9, 102, 4, 9, 9, 1001, 9, 2, 9, 4, 9, 99, 3, 9, 102, 2, 9, 9, 101, 5, 9, 9, 102, 3, 9, 9, 101, 3, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 2, 9, 102, 4, 9, 9, 1001, 9, 3, 9, 4, 9, 99, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 99, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 99, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99}
-	//Test data. Max thruster signal should be 43210 from phase setting sequence 43210
+	//Test data for part 1. Max thruster signal should be 43210 from phase setting sequence 43210
 	//day7Data := []int64{3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0}
-	//Test data. Max thruster signal should be 54321 from phase setting sequence 01234
+	//Test data for part 1. Max thruster signal should be 54321 from phase setting sequence 01234
 	//day7Data := []int64{3, 23, 3, 24, 1002, 24, 10, 24, 1002, 23, -1, 23, 101, 5, 23, 23, 1, 24, 23, 23, 4, 23, 99, 0, 0}
+	//Test data for part 2. Max thruster signal should be 18216 from phase setting sequence 97856
+	//day7Data := []int64{3, 52, 1001, 52, -5, 52, 3, 53, 1, 52, 56, 54, 1007, 54, 5, 55, 1005, 55, 26, 1001, 54, -5, 54, 1105, 1, 12, 1, 53, 54, 53, 1008, 54, 0, 55, 1001, 55, 1, 55, 2, 53, 55, 53, 4, 53, 1001, 56, -1, 56, 1005, 56, 6, 99, 0, 0, 0, 0, 10}
+
 	firstPhaseSettings := []int64{0, 1, 2, 3, 4}
 	firstValidSequences := getValidPhaseSequences(firstPhaseSettings)
 
-	var lastOutput int64 = 0
-	var largestOutput int64 = 0
-	var bestSequence []int64
-	for _, sequence := range firstValidSequences {
-		for _, setting := range sequence {
-			lastOutput = getResult(day7Data, []int64{setting, lastOutput})
+	secondPhaseSettings := []int64{5, 6, 7, 8, 9}
+	secondValidSequences := getValidPhaseSequences(secondPhaseSettings)
 
-		}
-		if lastOutput > largestOutput {
-			largestOutput = lastOutput
-			bestSequence = sequence
-		}
+	var lastOutput int64 = 0
+	var lastOutputOfE func() int64
+
+	var largestOutputFirst int64 = 0
+	var bestSequenceFirst []int64
+	var largestOutputSecond int64 = 0
+	var bestSequenceSecond []int64
+
+	var channels = make([]chan int64, 5)
+
+	for _, sequence := range firstValidSequences {
 		lastOutput = 0
+		for _, setting := range sequence {
+			in, out, getOutput := getIOHandlersForOneRun(setting, lastOutput)
+			intComp(day7Data, in, out)
+			lastOutput = getOutput()
+		}
+		if lastOutput > largestOutputFirst {
+			largestOutputFirst = lastOutput
+			bestSequenceFirst = sequence
+		}
 	}
 
-	fmt.Println("largestOutput:", largestOutput)
-	fmt.Println(bestSequence)
+	for _, sequence := range secondValidSequences {
+		lastOutput = 0
+		var inputHandlers = make([]inputHandler, 5)
+		var outputHandlers = make([]outputHandler, 5)
+
+		for i := 0; i < 5; i++ {
+			channels[i] = make(chan int64, 10)
+		}
+		finished := make(chan bool, 5)
+
+		for i, setting := range sequence {
+
+			outChannel := channels[(i+1)%5]
+			in, out, getLastOutput := getIOHandlersForChannel(channels[i], outChannel, setting)
+			inputHandlers[i] = in
+			outputHandlers[i] = out
+			if i == 4 {
+				lastOutputOfE = getLastOutput
+			}
+		}
+		for i := range sequence {
+			go runAmp(day7Data, inputHandlers[i], outputHandlers[i], finished)
+		}
+		channels[0] <- 0
+
+		for i := 0; i < 5; i++ {
+			<-finished
+		}
+		lastOutput = lastOutputOfE()
+
+		fmt.Println(lastOutput)
+		if lastOutput > largestOutputSecond {
+			largestOutputSecond = lastOutput
+			bestSequenceSecond = sequence
+		}
+	}
+
+	fmt.Println("largestOutput first run:", largestOutputFirst)
+	fmt.Println("bestSequence first run:", bestSequenceFirst)
+	fmt.Println("largestOutput continous:", largestOutputSecond)
+	fmt.Println("bestSequence continous:", bestSequenceSecond)
+
 }
 
 const day1Data = `73617
