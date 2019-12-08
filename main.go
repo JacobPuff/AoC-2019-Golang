@@ -4,6 +4,9 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"log"
 	"math"
 	"os"
@@ -36,6 +39,8 @@ func main() {
 		day6()
 	case 7:
 		day7()
+	case 8:
+		day8()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -662,6 +667,87 @@ func day7() {
 	fmt.Println("bestSequence first run:", bestSequenceFirst)
 	fmt.Println("largestOutput continous:", largestOutputSecond)
 	fmt.Println("bestSequence continous:", bestSequenceSecond)
+
+}
+
+func day8() {
+	const width = 25
+	const height = 6
+	var data string
+	var layers []string
+	var leastZeros = math.MaxInt64
+	var leastZerosLayer int
+	currentOnes := 0
+	currentTwos := 0
+
+	file, err := os.Open("./day8ImageData.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		data = scanner.Text()
+	}
+
+	for i := 0; i < len(data); i += width * height {
+		layer := data[i : i+(width*height)]
+		layers = append(layers, layer)
+	}
+
+	for index, layer := range layers {
+		currentZeros := 0
+		for i := 0; i < len(layer); i++ {
+			if layer[i] == '0' {
+				currentZeros++
+			}
+		}
+		if currentZeros < leastZeros {
+			leastZeros = currentZeros
+			leastZerosLayer = index
+		}
+	}
+
+	for _, str := range layers[leastZerosLayer] {
+		if str == '1' {
+			currentOnes++
+		}
+		if str == '2' {
+			currentTwos++
+		}
+	}
+	fmt.Println("least zeros layer:", leastZerosLayer)
+	fmt.Println("1s and 2s multiplied in that layer:", currentOnes*currentTwos)
+
+	img := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{width, height}})
+	var datImg [height][width]string
+	for index := range layers {
+		usedIndex := (len(layers) - 1) - index
+		layer := layers[usedIndex]
+
+		for point, clr := range layer {
+			x := point % width
+			y := point / width
+			switch clr {
+			case '0':
+				img.Set(x, y, color.Black)
+				datImg[y][x] = " "
+			case '1':
+				img.Set(x, y, color.White)
+				datImg[y][x] = "█"
+			case '2':
+			}
+		}
+	}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			fmt.Print(datImg[y][x])
+		}
+		fmt.Print("\n")
+	}
+	f, _ := os.Create("day8Image.png")
+	png.Encode(f, img)
 
 }
 
