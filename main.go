@@ -41,6 +41,8 @@ func main() {
 		day7()
 	case 8:
 		day8()
+	case 9:
+		day9()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -81,24 +83,36 @@ func day1() {
 
 }
 
-func getParamWithMode(data []int64, mode int64, location int64) (paramVal int64) {
+func makeMapForArray(arr []int64) map[int64]int64 {
+	theMap := make(map[int64]int64)
+	for index, val := range arr {
+		theMap[int64(index)] = val
+	}
+	return theMap
+}
+
+func getParamWithMode(data map[int64]int64, mode int64, location int64, relativeBase int64) (paramVal int64) {
 	switch mode {
 	case 0:
 		return data[data[location]]
 	case 1:
 		return data[location]
+	case 2:
+		return data[data[location]+relativeBase]
 	default:
 		fmt.Printf("No mode with value %d when getting location %d", mode, location)
 		return -1
 	}
 }
 
-func setParamWithMode(data []int64, mode int64, location int64, value int64) (paramVal int64) {
+func setParamWithMode(data map[int64]int64, mode int64, location int64, value int64, relativeBase int64) (paramVal int64) {
 	switch mode {
 	case 0:
 		data[data[location]] = value
 	case 1:
 		data[location] = value
+	case 2:
+		data[data[location]+relativeBase] = value
 	default:
 		fmt.Printf("Cant set with mode of value %d when setting location %d", mode, location)
 		return -1
@@ -110,10 +124,13 @@ type inputHandler func() int64
 type outputHandler func(int64)
 
 //Intcode computer
-func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandler) int64 {
-
-	var copiedData = make([]int64, len(intCodeData))
-	copy(copiedData, intCodeData)
+func intComp(intCodeData map[int64]int64, getInput inputHandler, sendOutput outputHandler) int64 {
+	var relativeBase int64 = 0
+	var copiedData = make(map[int64]int64)
+	var key, val int64
+	for key, val = range intCodeData {
+		copiedData[key] = val
+	}
 	var currentPos int64 = 0
 	instruction := copiedData[currentPos]
 	running := true
@@ -129,9 +146,9 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 		var result int64
 
 		if currentOpCode == 1 {
-			firstVal = getParamWithMode(copiedData, mode1, currentPos+1)
-			secondVal = getParamWithMode(copiedData, mode2, currentPos+2)
-			result = setParamWithMode(copiedData, mode3, currentPos+3, firstVal+secondVal)
+			firstVal = getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			secondVal = getParamWithMode(copiedData, mode2, currentPos+2, relativeBase)
+			result = setParamWithMode(copiedData, mode3, currentPos+3, firstVal+secondVal, relativeBase)
 			if result == -1 {
 				running = false
 			}
@@ -139,9 +156,9 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 		}
 
 		if currentOpCode == 2 {
-			firstVal = getParamWithMode(copiedData, mode1, currentPos+1)
-			secondVal = getParamWithMode(copiedData, mode2, currentPos+2)
-			result = setParamWithMode(copiedData, mode3, currentPos+3, firstVal*secondVal)
+			firstVal = getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			secondVal = getParamWithMode(copiedData, mode2, currentPos+2, relativeBase)
+			result = setParamWithMode(copiedData, mode3, currentPos+3, firstVal*secondVal, relativeBase)
 			if result == -1 {
 				running = false
 			}
@@ -150,7 +167,7 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 
 		if currentOpCode == 3 {
 			var input int64 = getInput()
-			result = setParamWithMode(copiedData, mode1, currentPos+1, input)
+			result = setParamWithMode(copiedData, mode1, currentPos+1, input, relativeBase)
 			if result == -1 {
 				running = false
 			}
@@ -158,14 +175,14 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 		}
 
 		if currentOpCode == 4 {
-			output := getParamWithMode(copiedData, mode1, currentPos+1)
+			output := getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
 			sendOutput(output)
 			currentPos += 2
 		}
 
 		if currentOpCode == 5 {
-			firstVal = getParamWithMode(copiedData, mode1, currentPos+1)
-			secondVal = getParamWithMode(copiedData, mode2, currentPos+2)
+			firstVal = getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			secondVal = getParamWithMode(copiedData, mode2, currentPos+2, relativeBase)
 			if firstVal != 0 {
 				currentPos = secondVal
 			} else {
@@ -174,8 +191,8 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 		}
 
 		if currentOpCode == 6 {
-			firstVal = getParamWithMode(copiedData, mode1, currentPos+1)
-			secondVal = getParamWithMode(copiedData, mode2, currentPos+2)
+			firstVal = getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			secondVal = getParamWithMode(copiedData, mode2, currentPos+2, relativeBase)
 			if firstVal == 0 {
 				currentPos = secondVal
 			} else {
@@ -184,12 +201,12 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 		}
 
 		if currentOpCode == 7 {
-			firstVal = getParamWithMode(copiedData, mode1, currentPos+1)
-			secondVal = getParamWithMode(copiedData, mode2, currentPos+2)
+			firstVal = getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			secondVal = getParamWithMode(copiedData, mode2, currentPos+2, relativeBase)
 			if firstVal < secondVal {
-				result = setParamWithMode(copiedData, mode3, currentPos+3, 1)
+				result = setParamWithMode(copiedData, mode3, currentPos+3, 1, relativeBase)
 			} else {
-				result = setParamWithMode(copiedData, mode3, currentPos+3, 0)
+				result = setParamWithMode(copiedData, mode3, currentPos+3, 0, relativeBase)
 			}
 
 			if result == -1 {
@@ -199,18 +216,23 @@ func intComp(intCodeData []int64, getInput inputHandler, sendOutput outputHandle
 		}
 
 		if currentOpCode == 8 {
-			firstVal = getParamWithMode(copiedData, mode1, currentPos+1)
-			secondVal = getParamWithMode(copiedData, mode2, currentPos+2)
+			firstVal = getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			secondVal = getParamWithMode(copiedData, mode2, currentPos+2, relativeBase)
 			if firstVal == secondVal {
-				result = setParamWithMode(copiedData, mode3, currentPos+3, 1)
+				result = setParamWithMode(copiedData, mode3, currentPos+3, 1, relativeBase)
 			} else {
-				result = setParamWithMode(copiedData, mode3, currentPos+3, 0)
+				result = setParamWithMode(copiedData, mode3, currentPos+3, 0, relativeBase)
 			}
 
 			if result == -1 {
 				running = false
 			}
 			currentPos += 4
+		}
+
+		if currentOpCode == 9 {
+			relativeBase += getParamWithMode(copiedData, mode1, currentPos+1, relativeBase)
+			currentPos += 2
 		}
 
 		if currentOpCode == 99 {
@@ -236,19 +258,17 @@ func printOutput(output int64) {
 
 func day2() {
 	var intCodeData = []int64{1, 12, 2, 3, 1, 1, 2, 3, 1, 3, 4, 3, 1, 5, 0, 3, 2, 13, 1, 19, 1, 5, 19, 23, 2, 10, 23, 27, 1, 27, 5, 31, 2, 9, 31, 35, 1, 35, 5, 39, 2, 6, 39, 43, 1, 43, 5, 47, 2, 47, 10, 51, 2, 51, 6, 55, 1, 5, 55, 59, 2, 10, 59, 63, 1, 63, 6, 67, 2, 67, 6, 71, 1, 71, 5, 75, 1, 13, 75, 79, 1, 6, 79, 83, 2, 83, 13, 87, 1, 87, 6, 91, 1, 10, 91, 95, 1, 95, 9, 99, 2, 99, 13, 103, 1, 103, 6, 107, 2, 107, 6, 111, 1, 111, 2, 115, 1, 115, 13, 0, 99, 2, 0, 14, 0}
-
+	var intCodeMap = makeMapForArray(intCodeData)
 	//Gets result for initial data
-	intCodeDataResultAtZero := intComp(intCodeData, getUserInput, printOutput)
+	intCodeDataResultAtZero := intComp(intCodeMap, getUserInput, printOutput)
 	fmt.Println("initial result at zero: ", intCodeDataResultAtZero)
 
-	//Part 2 is what the copiedData is for, so that it can test a whole bunch of nouns and verbs
-	//without changing the data permanently
 	var noun, verb int64
 	for noun = 1; noun <= 99; noun++ {
 		for verb = 1; verb <= 99; verb++ {
 			intCodeData[1] = noun
 			intCodeData[2] = verb
-			if intComp(intCodeData, getUserInput, printOutput) == 19690720 {
+			if intComp(intCodeMap, getUserInput, printOutput) == 19690720 {
 				fmt.Println("Noun and verb for result 19690720:")
 				fmt.Println("  noun: ", intCodeData[1])
 				fmt.Println("  verb: ", intCodeData[2])
@@ -412,11 +432,12 @@ func day4() {
 
 func day5() {
 	inputData := []int64{3, 225, 1, 225, 6, 6, 1100, 1, 238, 225, 104, 0, 1101, 37, 61, 225, 101, 34, 121, 224, 1001, 224, -49, 224, 4, 224, 102, 8, 223, 223, 1001, 224, 6, 224, 1, 224, 223, 223, 1101, 67, 29, 225, 1, 14, 65, 224, 101, -124, 224, 224, 4, 224, 1002, 223, 8, 223, 101, 5, 224, 224, 1, 224, 223, 223, 1102, 63, 20, 225, 1102, 27, 15, 225, 1102, 18, 79, 224, 101, -1422, 224, 224, 4, 224, 102, 8, 223, 223, 1001, 224, 1, 224, 1, 223, 224, 223, 1102, 20, 44, 225, 1001, 69, 5, 224, 101, -32, 224, 224, 4, 224, 1002, 223, 8, 223, 101, 1, 224, 224, 1, 223, 224, 223, 1102, 15, 10, 225, 1101, 6, 70, 225, 102, 86, 40, 224, 101, -2494, 224, 224, 4, 224, 1002, 223, 8, 223, 101, 6, 224, 224, 1, 223, 224, 223, 1102, 25, 15, 225, 1101, 40, 67, 224, 1001, 224, -107, 224, 4, 224, 102, 8, 223, 223, 101, 1, 224, 224, 1, 223, 224, 223, 2, 126, 95, 224, 101, -1400, 224, 224, 4, 224, 1002, 223, 8, 223, 1001, 224, 3, 224, 1, 223, 224, 223, 1002, 151, 84, 224, 101, -2100, 224, 224, 4, 224, 102, 8, 223, 223, 101, 6, 224, 224, 1, 224, 223, 223, 4, 223, 99, 0, 0, 0, 677, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1105, 0, 99999, 1105, 227, 247, 1105, 1, 99999, 1005, 227, 99999, 1005, 0, 256, 1105, 1, 99999, 1106, 227, 99999, 1106, 0, 265, 1105, 1, 99999, 1006, 0, 99999, 1006, 227, 274, 1105, 1, 99999, 1105, 1, 280, 1105, 1, 99999, 1, 225, 225, 225, 1101, 294, 0, 0, 105, 1, 0, 1105, 1, 99999, 1106, 0, 300, 1105, 1, 99999, 1, 225, 225, 225, 1101, 314, 0, 0, 106, 0, 0, 1105, 1, 99999, 108, 677, 677, 224, 1002, 223, 2, 223, 1006, 224, 329, 101, 1, 223, 223, 1107, 677, 226, 224, 102, 2, 223, 223, 1006, 224, 344, 101, 1, 223, 223, 8, 677, 677, 224, 1002, 223, 2, 223, 1006, 224, 359, 101, 1, 223, 223, 1008, 677, 677, 224, 1002, 223, 2, 223, 1006, 224, 374, 101, 1, 223, 223, 7, 226, 677, 224, 1002, 223, 2, 223, 1006, 224, 389, 1001, 223, 1, 223, 1007, 677, 677, 224, 1002, 223, 2, 223, 1006, 224, 404, 1001, 223, 1, 223, 7, 677, 677, 224, 1002, 223, 2, 223, 1006, 224, 419, 1001, 223, 1, 223, 1008, 677, 226, 224, 1002, 223, 2, 223, 1005, 224, 434, 1001, 223, 1, 223, 1107, 226, 677, 224, 102, 2, 223, 223, 1005, 224, 449, 1001, 223, 1, 223, 1008, 226, 226, 224, 1002, 223, 2, 223, 1006, 224, 464, 1001, 223, 1, 223, 1108, 677, 677, 224, 102, 2, 223, 223, 1006, 224, 479, 101, 1, 223, 223, 1108, 226, 677, 224, 1002, 223, 2, 223, 1006, 224, 494, 1001, 223, 1, 223, 107, 226, 226, 224, 1002, 223, 2, 223, 1006, 224, 509, 1001, 223, 1, 223, 8, 226, 677, 224, 102, 2, 223, 223, 1006, 224, 524, 1001, 223, 1, 223, 1007, 226, 226, 224, 1002, 223, 2, 223, 1006, 224, 539, 1001, 223, 1, 223, 107, 677, 677, 224, 1002, 223, 2, 223, 1006, 224, 554, 1001, 223, 1, 223, 1107, 226, 226, 224, 102, 2, 223, 223, 1005, 224, 569, 101, 1, 223, 223, 1108, 677, 226, 224, 1002, 223, 2, 223, 1006, 224, 584, 1001, 223, 1, 223, 1007, 677, 226, 224, 1002, 223, 2, 223, 1005, 224, 599, 101, 1, 223, 223, 107, 226, 677, 224, 102, 2, 223, 223, 1005, 224, 614, 1001, 223, 1, 223, 108, 226, 226, 224, 1002, 223, 2, 223, 1005, 224, 629, 101, 1, 223, 223, 7, 677, 226, 224, 102, 2, 223, 223, 1005, 224, 644, 101, 1, 223, 223, 8, 677, 226, 224, 102, 2, 223, 223, 1006, 224, 659, 1001, 223, 1, 223, 108, 677, 226, 224, 102, 2, 223, 223, 1005, 224, 674, 1001, 223, 1, 223, 4, 223, 99, 226}
+	var inputMap = makeMapForArray(inputData)
 	// Test data. Prints 999 if input below 8, 1000 if equal, 1001 if greater.
 	//inputData := []int64{3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31, 1106, 0, 36, 98, 0, 0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104, 999, 1105, 1, 46, 1101, 1000, 1, 20, 4, 20, 1105, 1, 46, 98, 99}
 	// Test data. if input not 0 it prints 1, if input 0 it prints 0
 	//inputData := []int64{3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9}
-	intComp(inputData, getUserInput, printOutput)
+	intComp(inputMap, getUserInput, printOutput)
 }
 
 type Body struct {
@@ -583,7 +604,7 @@ func getIOHandlersForOneRun(setting int64, input int64) (inputHandler, outputHan
 	return in, out, getOutput
 }
 
-func runAmp(data []int64, in inputHandler, out outputHandler, finished chan bool) {
+func runAmp(data map[int64]int64, in inputHandler, out outputHandler, finished chan bool) {
 	intComp(data, in, out)
 	finished <- true
 }
@@ -596,6 +617,8 @@ func day7() {
 	//day7Data := []int64{3, 23, 3, 24, 1002, 24, 10, 24, 1002, 23, -1, 23, 101, 5, 23, 23, 1, 24, 23, 23, 4, 23, 99, 0, 0}
 	//Test data for part 2. Max thruster signal should be 18216 from phase setting sequence 97856
 	//day7Data := []int64{3, 52, 1001, 52, -5, 52, 3, 53, 1, 52, 56, 54, 1007, 54, 5, 55, 1005, 55, 26, 1001, 54, -5, 54, 1105, 1, 12, 1, 53, 54, 53, 1008, 54, 0, 55, 1001, 55, 1, 55, 2, 53, 55, 53, 4, 53, 1001, 56, -1, 56, 1005, 56, 6, 99, 0, 0, 0, 0, 10}
+
+	day7Map := makeMapForArray(day7Data)
 
 	firstPhaseSettings := []int64{0, 1, 2, 3, 4}
 	firstValidSequences := getValidPhaseSequences(firstPhaseSettings)
@@ -617,7 +640,7 @@ func day7() {
 		lastOutput = 0
 		for _, setting := range sequence {
 			in, out, getOutput := getIOHandlersForOneRun(setting, lastOutput)
-			intComp(day7Data, in, out)
+			intComp(day7Map, in, out)
 			lastOutput = getOutput()
 		}
 		if lastOutput > largestOutputFirst {
@@ -647,7 +670,7 @@ func day7() {
 			}
 		}
 		for i := range sequence {
-			go runAmp(day7Data, inputHandlers[i], outputHandlers[i], finished)
+			go runAmp(day7Map, inputHandlers[i], outputHandlers[i], finished)
 		}
 		channels[0] <- 0
 
@@ -749,6 +772,14 @@ func day8() {
 	f, _ := os.Create("day8Image.png")
 	png.Encode(f, img)
 
+}
+
+func day9() {
+	boostIntCodeData := []int64{1102, 34463338, 34463338, 63, 1007, 63, 34463338, 63, 1005, 63, 53, 1102, 3, 1, 1000, 109, 988, 209, 12, 9, 1000, 209, 6, 209, 3, 203, 0, 1008, 1000, 1, 63, 1005, 63, 65, 1008, 1000, 2, 63, 1005, 63, 902, 1008, 1000, 0, 63, 1005, 63, 58, 4, 25, 104, 0, 99, 4, 0, 104, 0, 99, 4, 17, 104, 0, 99, 0, 0, 1101, 309, 0, 1024, 1101, 0, 24, 1002, 1102, 388, 1, 1029, 1102, 1, 21, 1019, 1101, 0, 33, 1015, 1102, 1, 304, 1025, 1101, 344, 0, 1027, 1101, 25, 0, 1003, 1102, 1, 1, 1021, 1101, 29, 0, 1012, 1101, 0, 23, 1005, 1102, 1, 32, 1007, 1102, 38, 1, 1000, 1101, 30, 0, 1016, 1102, 1, 347, 1026, 1101, 0, 26, 1010, 1101, 0, 39, 1004, 1102, 1, 36, 1011, 1101, 0, 393, 1028, 1101, 0, 37, 1013, 1101, 0, 35, 1008, 1101, 34, 0, 1001, 1101, 0, 495, 1022, 1102, 1, 28, 1018, 1101, 0, 0, 1020, 1102, 1, 22, 1006, 1101, 488, 0, 1023, 1102, 31, 1, 1009, 1102, 1, 20, 1017, 1101, 0, 27, 1014, 109, 10, 21102, 40, 1, 4, 1008, 1014, 37, 63, 1005, 63, 205, 1001, 64, 1, 64, 1106, 0, 207, 4, 187, 1002, 64, 2, 64, 109, -18, 1207, 8, 37, 63, 1005, 63, 227, 1001, 64, 1, 64, 1106, 0, 229, 4, 213, 1002, 64, 2, 64, 109, 17, 1207, -7, 25, 63, 1005, 63, 247, 4, 235, 1106, 0, 251, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -8, 1202, 6, 1, 63, 1008, 63, 29, 63, 1005, 63, 275, 1001, 64, 1, 64, 1106, 0, 277, 4, 257, 1002, 64, 2, 64, 109, 25, 1205, -6, 293, 1001, 64, 1, 64, 1105, 1, 295, 4, 283, 1002, 64, 2, 64, 109, -4, 2105, 1, 2, 4, 301, 1106, 0, 313, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -9, 1208, -4, 31, 63, 1005, 63, 335, 4, 319, 1001, 64, 1, 64, 1105, 1, 335, 1002, 64, 2, 64, 109, 16, 2106, 0, -2, 1106, 0, 353, 4, 341, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -13, 2102, 1, -8, 63, 1008, 63, 38, 63, 1005, 63, 373, 1105, 1, 379, 4, 359, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 9, 2106, 0, 3, 4, 385, 1105, 1, 397, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -11, 21107, 41, 42, 0, 1005, 1014, 415, 4, 403, 1106, 0, 419, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 14, 1206, -7, 431, 1106, 0, 437, 4, 425, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -23, 2107, 37, -5, 63, 1005, 63, 455, 4, 443, 1105, 1, 459, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 10, 21107, 42, 41, -2, 1005, 1013, 475, 1105, 1, 481, 4, 465, 1001, 64, 1, 64, 1002, 64, 2, 64, 2105, 1, 8, 1001, 64, 1, 64, 1106, 0, 497, 4, 485, 1002, 64, 2, 64, 109, -6, 21108, 43, 41, 8, 1005, 1017, 517, 1001, 64, 1, 64, 1106, 0, 519, 4, 503, 1002, 64, 2, 64, 109, 5, 2101, 0, -9, 63, 1008, 63, 23, 63, 1005, 63, 541, 4, 525, 1106, 0, 545, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -13, 1201, 5, 0, 63, 1008, 63, 20, 63, 1005, 63, 565, 1105, 1, 571, 4, 551, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 16, 1205, 4, 589, 4, 577, 1001, 64, 1, 64, 1106, 0, 589, 1002, 64, 2, 64, 109, -16, 1202, 4, 1, 63, 1008, 63, 23, 63, 1005, 63, 615, 4, 595, 1001, 64, 1, 64, 1106, 0, 615, 1002, 64, 2, 64, 109, 1, 2101, 0, 6, 63, 1008, 63, 33, 63, 1005, 63, 639, 1001, 64, 1, 64, 1105, 1, 641, 4, 621, 1002, 64, 2, 64, 109, 8, 21101, 44, 0, 8, 1008, 1018, 44, 63, 1005, 63, 667, 4, 647, 1001, 64, 1, 64, 1105, 1, 667, 1002, 64, 2, 64, 109, -7, 1201, 1, 0, 63, 1008, 63, 39, 63, 1005, 63, 689, 4, 673, 1106, 0, 693, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 7, 2102, 1, -8, 63, 1008, 63, 24, 63, 1005, 63, 715, 4, 699, 1105, 1, 719, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 5, 2108, 34, -7, 63, 1005, 63, 739, 1001, 64, 1, 64, 1105, 1, 741, 4, 725, 1002, 64, 2, 64, 109, -22, 2108, 25, 10, 63, 1005, 63, 763, 4, 747, 1001, 64, 1, 64, 1106, 0, 763, 1002, 64, 2, 64, 109, 31, 1206, -4, 781, 4, 769, 1001, 64, 1, 64, 1105, 1, 781, 1002, 64, 2, 64, 109, -10, 21101, 45, 0, 5, 1008, 1019, 47, 63, 1005, 63, 805, 1001, 64, 1, 64, 1105, 1, 807, 4, 787, 1002, 64, 2, 64, 109, 2, 21108, 46, 46, -3, 1005, 1013, 825, 4, 813, 1106, 0, 829, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, -22, 2107, 40, 10, 63, 1005, 63, 845, 1105, 1, 851, 4, 835, 1001, 64, 1, 64, 1002, 64, 2, 64, 109, 17, 1208, -7, 36, 63, 1005, 63, 871, 1001, 64, 1, 64, 1105, 1, 873, 4, 857, 1002, 64, 2, 64, 109, 16, 21102, 47, 1, -9, 1008, 1018, 47, 63, 1005, 63, 899, 4, 879, 1001, 64, 1, 64, 1106, 0, 899, 4, 64, 99, 21102, 1, 27, 1, 21101, 0, 913, 0, 1105, 1, 920, 21201, 1, 39657, 1, 204, 1, 99, 109, 3, 1207, -2, 3, 63, 1005, 63, 962, 21201, -2, -1, 1, 21102, 1, 940, 0, 1105, 1, 920, 21201, 1, 0, -1, 21201, -2, -3, 1, 21101, 955, 0, 0, 1105, 1, 920, 22201, 1, -1, -2, 1106, 0, 966, 21202, -2, 1, -2, 109, -3, 2105, 1, 0}
+	//Test data. Produces a copy of itself
+	//boostIntCodeData := []int64{109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99}
+	boostIntCodeMap := makeMapForArray(boostIntCodeData)
+	intComp(boostIntCodeMap, getUserInput, printOutput)
 }
 
 const day1Data = `73617
