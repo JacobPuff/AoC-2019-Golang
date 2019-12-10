@@ -42,6 +42,8 @@ func main() {
 		day8()
 	case 9:
 		day9()
+	case 10:
+		day10()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -780,6 +782,123 @@ func day9() {
 	boostIntCodeMap := makeMapForArray(boostIntCodeData)
 	intComp(boostIntCodeMap, getUserInput, printOutput)
 }
+
+func day10() {
+	//To use test data. Best asteroid should be 11,13, with most visible being 210
+	//asteroidsData := asteroidsTestData
+	var asteroids = strings.Split(asteroidsData, "\n")
+	var asteroidsArr []Point
+	var asteroidsVisible = make(map[Point]int64)
+	var vaporizedNum int64 = 0
+	var twoHundrethVaporized Point
+	var bestAsteroidPos Point
+	var mostVisible int64
+
+	for y, line := range asteroids {
+		for x, point := range line {
+			if point == '#' {
+				asteroidsArr = append(asteroidsArr, Point{int64(x), int64(y)})
+				asteroidsVisible[Point{int64(x), int64(y)}] = 1
+			}
+		}
+	}
+	for _, asteroid := range asteroidsArr {
+		var slopesUsed = make(map[float64]Point)
+		for _, compareAsteroid := range asteroidsArr {
+			if asteroid != compareAsteroid {
+				anglePoint := Point{1, 1}
+				slope := 0.0
+				if (compareAsteroid.x - asteroid.x) != 0 {
+					slope = float64(compareAsteroid.y-asteroid.y) / float64(compareAsteroid.x-asteroid.x)
+				}
+				if compareAsteroid.x < asteroid.x {
+					anglePoint.x = -1
+				}
+				if compareAsteroid.y < asteroid.y {
+					anglePoint.y = -1
+				}
+				if slopesUsed[slope] != anglePoint {
+					asteroidsVisible[asteroid]++
+					slopesUsed[slope] = anglePoint
+				}
+
+				if mostVisible < asteroidsVisible[asteroid] {
+					bestAsteroidPos = asteroid
+					mostVisible = asteroidsVisible[asteroid]
+				}
+			}
+		}
+	}
+	/*
+	   Get slope and anglePoint for all visible asteroids
+	   Sort by angle
+	   Remove asteroids
+	   Repeat until number 200
+	*/
+	for vaporizedNum != 200 {
+		// for astroidNum, asteroid := range asteroidsArr {
+		// }
+		vaporizedNum++
+	}
+	fmt.Println("bestPos:", bestAsteroidPos)
+	fmt.Println("mostVisible:", mostVisible)
+	fmt.Println("200th vaporized:", (twoHundrethVaporized.x*100)+twoHundrethVaporized.y)
+}
+
+var asteroidsData = `.#......##.#..#.......#####...#..
+...#.....##......###....#.##.....
+..#...#....#....#............###.
+.....#......#.##......#.#..###.#.
+#.#..........##.#.#...#.##.#.#.#.
+..#.##.#...#.......#..##.......##
+..#....#.....#..##.#..####.#.....
+#.............#..#.........#.#...
+........#.##..#..#..#.#.....#.#..
+.........#...#..##......###.....#
+##.#.###..#..#.#.....#.........#.
+.#.###.##..##......#####..#..##..
+.........#.......#.#......#......
+..#...#...#...#.#....###.#.......
+#..#.#....#...#.......#..#.#.##..
+#.....##...#.###..#..#......#..##
+...........#...#......#..#....#..
+#.#.#......#....#..#.....##....##
+..###...#.#.##..#...#.....#...#.#
+.......#..##.#..#.............##.
+..###........##.#................
+###.#..#...#......###.#........#.
+.......#....#.#.#..#..#....#..#..
+.#...#..#...#......#....#.#..#...
+#.#.........#.....#....#.#.#.....
+.#....#......##.##....#........#.
+....#..#..#...#..##.#.#......#.#.
+..###.##.#.....#....#.#......#...
+#.##...#............#..#.....#..#
+.#....##....##...#......#........
+...#...##...#.......#....##.#....
+.#....#.#...#.#...##....#..##.#.#
+.#.#....##.......#.....##.##.#.##`
+
+var asteroidsTestData = `.#..##.###...#######
+##.############..##.
+.#.######.########.#
+.###.#######.####.#.
+#####.##.#.##.###.##
+..#####..#.#########
+####################
+#.####....###.#.#.##
+##.#################
+#####.##.###..####..
+..######..##.#######
+####.##.####...##..#
+.#####..#.######.###
+##...#.##########...
+#.##########.#######
+.####.#.###.###.#.##
+....##.##.###..#####
+.#.#.###########.###
+#.#.#.#####.####.###
+###.##.####.##.#..##`
 
 const day1Data = `73617
 104372
