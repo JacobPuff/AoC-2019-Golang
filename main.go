@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -783,13 +784,25 @@ func day9() {
 	intComp(boostIntCodeMap, getUserInput, printOutput)
 }
 
+func getAngle(x1, y1, x2, y2 int64) float64 {
+	//Subracting 90 puts the start of the circle at the top
+	//Adding 360 if less than 0 turns things into positive degrees for easy sorting
+	angle := (math.Atan2(float64(y1-y2), float64(x1-x2)) * 180) / math.Pi
+	angle -= 90
+	if angle < 0 {
+		angle += 360
+	}
+	return angle
+}
+
 func day10() {
 	//To use test data. Best asteroid should be 11,13, with most visible being 210
 	//asteroidsData := asteroidsTestData
 	var asteroids = strings.Split(asteroidsData, "\n")
 	var asteroidsArr []Point
 	var asteroidsVisible = make(map[Point]int64)
-	var vaporizedNum int64 = 0
+	// var vaporized bool = false
+	// var vaporizedCount int64 = 0
 	var twoHundrethVaporized Point
 	var bestAsteroidPos Point
 	var mostVisible int64
@@ -802,6 +815,7 @@ func day10() {
 			}
 		}
 	}
+
 	for _, asteroid := range asteroidsArr {
 		var slopesUsed = make(map[float64]Point)
 		for _, compareAsteroid := range asteroidsArr {
@@ -830,16 +844,39 @@ func day10() {
 		}
 	}
 	/*
-	   Get slope and anglePoint for all visible asteroids
-	   Sort by angle
-	   Remove asteroids
-	   Repeat until number 200
+		Get angles for every asteroid
+		Add first astroid per angle to temp array
+		Sort temp array by angle
+		Add to end array in that order
 	*/
-	for vaporizedNum != 200 {
-		// for astroidNum, asteroid := range asteroidsArr {
-		// }
-		vaporizedNum++
+	var anglesForPoints = make(map[Point]float64)
+	var pointsForAngles = make(map[float64][]Point)
+	for _, asteroid := range asteroidsArr {
+		if asteroid != bestAsteroidPos {
+			angle := getAngle(bestAsteroidPos.x, bestAsteroidPos.y, asteroid.x, asteroid.y)
+			anglesForPoints[asteroid] = angle
+			pointsForAngles[angle] = append(pointsForAngles[angle], asteroid)
+		}
 	}
+	var vaporizedArray []Point
+	for len(vaporizedArray) < len(asteroidsArr) {
+		var tempVaporizedArray []Point
+		for _, list := range pointsForAngles {
+			if len(list) > 0 {
+				nextAsteroid := list[0]
+				list = list[1:]
+				tempVaporizedArray = append(tempVaporizedArray, nextAsteroid)
+			}
+		}
+		sort.Slice(tempVaporizedArray, func(a, b int) bool {
+			return anglesForPoints[tempVaporizedArray[a]] < anglesForPoints[tempVaporizedArray[b]]
+		})
+		for _, point := range tempVaporizedArray {
+			vaporizedArray = append(vaporizedArray, point)
+		}
+	}
+
+	twoHundrethVaporized = vaporizedArray[199]
 	fmt.Println("bestPos:", bestAsteroidPos)
 	fmt.Println("mostVisible:", mostVisible)
 	fmt.Println("200th vaporized:", (twoHundrethVaporized.x*100)+twoHundrethVaporized.y)
