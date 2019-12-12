@@ -813,6 +813,7 @@ func day10() {
 		for x, point := range line {
 			if point == '#' {
 				asteroidsArr = append(asteroidsArr, Point{int64(x), int64(y)})
+				//Asteroids can see themselves
 				asteroidsVisible[Point{int64(x), int64(y)}] = 1
 			}
 		}
