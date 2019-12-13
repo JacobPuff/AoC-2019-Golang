@@ -47,6 +47,8 @@ func main() {
 		day10()
 	case 11:
 		day11()
+	case 12:
+		day12()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -1008,6 +1010,201 @@ func day11() {
 		}
 		fmt.Print("\n")
 	}
+}
+
+type xyzPoint struct {
+	x int64
+	y int64
+	z int64
+}
+
+func getMoonCombinations(moonPositions []xyzPoint) [][]int {
+	var combinations [][]int
+	var x, y int
+	for x = 0; x < len(moonPositions); x++ {
+		for y = x + 1; y < len(moonPositions); y++ {
+			combinations = append(combinations, []int{x, y})
+		}
+	}
+	return combinations
+}
+
+func xyzPointsInArray(a []xyzPoint, b [][]xyzPoint) int {
+	for x := 0; x < len(b); x++ {
+		found := 0
+		for y := 0; y < len(b[x]); y++ {
+			if b[x][y] == a[y] {
+				found++
+			}
+		}
+		if found == len(a) {
+			return x
+		}
+	}
+	return -1
+}
+
+func greatestCommonDenominator(a, b int64) int64 {
+	for b != 0 {
+		temp := b
+		b = a % b
+		a = temp
+	}
+	return a
+}
+
+func leastCommonMultiple(a, b int64) int64 {
+	// I dont do (a*b) / gcd(a,b) becuase gcd(a,b) is a divisor of both a and b, so this is more efficient
+	return (a / greatestCommonDenominator(a, b)) * b
+}
+
+func day12() {
+	//TODO Find a more efficient way to simulate the universe
+
+	//TODO Dont hardcode positions
+	var moonPositions = []xyzPoint{(xyzPoint{3, 15, 8}), (xyzPoint{5, -1, -2}), (xyzPoint{-10, 8, 2}), (xyzPoint{8, 4, -5})}
+	//Test data. After 10 steps total energy should be 179 and 2772 steps to get to a past position
+	//var moonPositions = []xyzPoint{(xyzPoint{-1, 0, 2}), (xyzPoint{2, -10, -7}), (xyzPoint{4, -8, 8}), (xyzPoint{3, 5, -1})}
+	//Test data. After 100 steps total energy should be 1940
+	//var moonPositions = []xyzPoint{(xyzPoint{-8, -10, 0}), (xyzPoint{5, 5, 10}), (xyzPoint{2, -7, 3}), (xyzPoint{9, -8, -3})}
+	var copiedPositions = []xyzPoint{}
+	copy(copiedPositions, moonPositions)
+	var prevMoonPositions [][]xyzPoint
+	var prevMoonVelocities [][]xyzPoint
+	var repeatIntervals = xyzPoint{0, 0, 0}
+	var repeatCount = 0
+	var moonVelocities = make([]xyzPoint, len(moonPositions))
+	var total int64 = 0
+	var steps int64 = 0
+	var afterSteps int64 = 10
+	moonCombos := getMoonCombinations(moonPositions)
+	for repeatCount < 3 || steps < afterSteps {
+		steps++
+		//Copy positions and velocities so we dont append a pointer
+		copiedPositions := make([]xyzPoint, len(moonPositions))
+		copiedVelocities := make([]xyzPoint, len(moonPositions))
+		copy(copiedPositions, moonPositions)
+		copy(copiedVelocities, moonVelocities)
+		prevMoonPositions = append(prevMoonPositions, copiedPositions)
+		prevMoonVelocities = append(prevMoonVelocities, copiedVelocities)
+		for _, moonCombo := range moonCombos {
+			//Pull out moons and velocities to change their data
+			moon0 := moonPositions[moonCombo[0]]
+			moon1 := moonPositions[moonCombo[1]]
+
+			moon0Velocity := moonVelocities[moonCombo[0]]
+			moon1Velocity := moonVelocities[moonCombo[1]]
+
+			//Change velocities per axis. Apply gravity
+			if moon0.x < moon1.x {
+				moon0Velocity.x++
+				moon1Velocity.x--
+			} else if moon0.x > moon1.x {
+				moon0Velocity.x--
+				moon1Velocity.x++
+			}
+
+			if moon0.y < moon1.y {
+				moon0Velocity.y++
+				moon1Velocity.y--
+			} else if moon0.y > moon1.y {
+				moon0Velocity.y--
+				moon1Velocity.y++
+			}
+
+			if moon0.z < moon1.z {
+				moon0Velocity.z++
+				moon1Velocity.z--
+			} else if moon0.z > moon1.z {
+				moon0Velocity.z--
+				moon1Velocity.z++
+			}
+
+			//Set moons and velocities with changed data
+			moonPositions[moonCombo[0]] = moon0
+			moonPositions[moonCombo[1]] = moon1
+
+			moonVelocities[moonCombo[0]] = moon0Velocity
+			moonVelocities[moonCombo[1]] = moon1Velocity
+		}
+
+		for moonIndex := range moonPositions {
+			//Change positions for velocities
+			moon := moonPositions[moonIndex]
+			moonVelocity := moonVelocities[moonIndex]
+			moon.x += moonVelocity.x
+			moon.y += moonVelocity.y
+			moon.z += moonVelocity.z
+			moonPositions[moonIndex] = moon
+			moonVelocities[moonIndex] = moonVelocity
+		}
+
+		// Get intervals
+		if repeatIntervals.x == 0 {
+			var allMatch bool = true
+			for _, velocity := range moonVelocities {
+				if velocity.x != 0 {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
+				repeatIntervals.x = steps
+				fmt.Println("Found X")
+				repeatCount++
+			}
+		}
+
+		if repeatIntervals.y == 0 {
+			var allMatch bool = true
+			for _, velocity := range moonVelocities {
+				if velocity.y != 0 {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
+				repeatIntervals.y = steps
+				fmt.Println("Found Y")
+				repeatCount++
+			}
+		}
+
+		if repeatIntervals.z == 0 {
+			var allMatch bool = true
+			for _, velocity := range moonVelocities {
+				if velocity.z != 0 {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
+				repeatIntervals.z = steps
+				fmt.Println("Found Z")
+				repeatCount++
+			}
+		}
+
+		if steps == afterSteps {
+			//Get total energy
+			for moonIndex := range moonPositions {
+				var totalPotential int64
+				var totalKinetic int64
+				totalPotential += Abs(moonPositions[moonIndex].x)
+				totalPotential += Abs(moonPositions[moonIndex].y)
+				totalPotential += Abs(moonPositions[moonIndex].z)
+				totalKinetic += Abs(moonVelocities[moonIndex].x)
+				totalKinetic += Abs(moonVelocities[moonIndex].y)
+				totalKinetic += Abs(moonVelocities[moonIndex].z)
+				total += totalPotential * totalKinetic
+			}
+			fmt.Println("total energy:", total)
+		}
+	}
+
+	pastPointSteps := leastCommonMultiple(repeatIntervals.x, repeatIntervals.y)
+	pastPointSteps = leastCommonMultiple(pastPointSteps, repeatIntervals.z) * 2
+	fmt.Println("Steps to past point in time:", pastPointSteps)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
