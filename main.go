@@ -1059,9 +1059,6 @@ func leastCommonMultiple(a, b int64) int64 {
 }
 
 func day12() {
-	//TODO Find a more efficient way to simulate the universe
-
-	//TODO Dont hardcode positions
 	var moonPositions = []xyzPoint{(xyzPoint{3, 15, 8}), (xyzPoint{5, -1, -2}), (xyzPoint{-10, 8, 2}), (xyzPoint{8, 4, -5})}
 	//Test data. After 10 steps total energy should be 179 and 2772 steps to get to a past position
 	//var moonPositions = []xyzPoint{(xyzPoint{-1, 0, 2}), (xyzPoint{2, -10, -7}), (xyzPoint{4, -8, 8}), (xyzPoint{3, 5, -1})}
