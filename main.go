@@ -1222,9 +1222,33 @@ func clearConsole(OS string) {
 	}
 }
 
+func printScreen(screen map[Point]int64, width, height int64) {
+	var x, y int64
+	fmt.Println("Score:", screen[Point{-1, 0}])
+	for x = 0; y <= height; y++ {
+		for x = 0; x <= width; x++ {
+			switch screen[Point{x, y}] {
+			case 0:
+				fmt.Print(" ")
+			case 1:
+				fmt.Print("█")
+			case 2:
+				fmt.Print("■")
+			case 3:
+				fmt.Print("—")
+			case 4:
+				fmt.Print("•")
+			}
+		}
+		fmt.Print("\n")
+	}
+}
+
 func getScreenIOHandlers(showScreen bool, width, height int64) (inputHandler, outputHandler, func() map[Point]int64) {
 	var outputNum int64 = 0
 	var setX, setY int64
+	var drawAfter int64 = 5
+	var frame int64 = 0
 	ballPos := Point{0, 0}
 	paddlePos := Point{0, 0}
 	var screen = make(map[Point]int64)
@@ -1247,11 +1271,17 @@ func getScreenIOHandlers(showScreen bool, width, height int64) (inputHandler, ou
 			outputNum++
 		case 2:
 			screen[Point{setX, setY}] = output
+			frame++
 			if output == 4 {
 				ballPos = Point{setX, setY}
 			}
 			if output == 3 {
 				paddlePos = Point{setX, setY}
+			}
+			if frame == drawAfter && showScreen {
+				frame = 0
+				clearConsole("windows")
+				printScreen(screen, width, height)
 			}
 			outputNum = 0
 		}
@@ -1287,28 +1317,10 @@ func day13() {
 
 	// "Insert" quarters. Memory address 0 is the number of quarters that have been inserted.
 	intCodes[0] = 2
-	in, out, getScreen = getScreenIOHandlers(true, width, height)
+	in, out, getScreen = getScreenIOHandlers(false, width, height)
 	intComp(intCodes, in, out)
 	screen = getScreen()
-	fmt.Println("Score:", screen[Point{-1, 0}])
-	var x, y int64
-	for x = 0; y <= height; y++ {
-		for x = 0; x <= width; x++ {
-			switch screen[Point{x, y}] {
-			case 0:
-				fmt.Print(" ")
-			case 1:
-				fmt.Print("█")
-			case 2:
-				fmt.Print("■")
-			case 3:
-				fmt.Print("—")
-			case 4:
-				fmt.Print("•")
-			}
-		}
-		fmt.Print("\n")
-	}
+	printScreen(screen, width, height)
 	print("score:", screen[Point{-1, 0}])
 }
 
