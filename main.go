@@ -52,6 +52,8 @@ func main() {
 		day12()
 	case 13:
 		day13()
+	case 14:
+		day14()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -1322,6 +1324,109 @@ func day13() {
 	screen = getScreen()
 	printScreen(screen, width, height)
 	print("score:", screen[Point{-1, 0}])
+}
+
+type reactionChem struct {
+	amount int
+	name   string
+}
+
+func getNeededChemForChemOfAmount(neededChem string, resultChem string, amount int,
+	neededForResult map[string][]reactionChem, producedAmount map[string]int, excess map[string]int) int {
+	var gottenAmount int = 0
+	var scale int = 1
+
+	// If something other than ORE is needed, it can do this,
+	// and I dont want to lower gotten value
+	// because of ore not having anything in its neededChemicals
+	if resultChem == "ORE" || amount == 0 {
+		return 0
+	}
+	// If chemical A is produced in 4,
+	// and B needs 5 A,
+	// and C needs 2 A,
+	// then dont produce 8 for B and 4 for C, (totals 12, 5 left over)
+	// use 2 A from Bs 8 for C, (totals 8, 1 left over)
+	neededChemicals := neededForResult[resultChem]
+	if len(neededChemicals) != 0 {
+		if amount > producedAmount[resultChem] {
+			scale = int(math.Ceil(float64(amount) / float64(producedAmount[resultChem])))
+
+		}
+		for _, chem := range neededChemicals {
+			if chem.name == neededChem {
+				gottenAmount += chem.amount * scale
+				continue
+			}
+			// If amountNeeded(4) - excess(5) is less than zero,
+			// amountNeeded is set to 0 and excess would be  excess(5) -= amountNeeded(0).
+			// So this temp is here to keep the amountNeeded value for later
+			// so excess(5) -= tempAmount(4)
+			tempAmount := (chem.amount * scale)
+			amountNeeded := (chem.amount * scale) - excess[chem.name]
+			if amountNeeded < 0 {
+				amountNeeded = 0
+			}
+
+			excess[chem.name] -= tempAmount
+			if excess[chem.name] < 0 {
+				excess[chem.name] = 0
+			}
+
+			if (amountNeeded % producedAmount[chem.name]) != 0 {
+				excess[chem.name] += producedAmount[chem.name] - (amountNeeded % producedAmount[chem.name])
+			}
+
+			gottenAmount += getNeededChemForChemOfAmount(neededChem, chem.name, amountNeeded,
+				neededForResult, producedAmount, excess)
+		}
+		return gottenAmount
+	}
+	return -1
+}
+
+func day14() {
+	file, err := os.Open("day14Data.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	var chemicalsNeededForResult = make(map[string][]reactionChem)
+	var producedAmount = make(map[string]int)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		reactionString := scanner.Text()
+		//Get inputs and output for reaction
+		reactionArray := strings.Split(reactionString, " => ")
+
+		//Get result data
+		resultArray := strings.Split(reactionArray[1], " ")
+		resultAmount, _ := strconv.Atoi(resultArray[0])
+		resultName := resultArray[1]
+		producedAmount[resultName] = resultAmount
+
+		//Get chemicals needed in structs
+		var completeInputChemArray []reactionChem
+		inputChemStringArray := strings.Split(reactionArray[0], ", ")
+		for _, inputChem := range inputChemStringArray {
+			if inputChem == "ORE" {
+				completeInputChemArray = append(completeInputChemArray, reactionChem{0, "ORE"})
+				continue
+			}
+			inputChemArray := strings.Split(inputChem, " ")
+			inputChemAmount, _ := strconv.Atoi(inputChemArray[0])
+			parsedInputChem := reactionChem{inputChemAmount, inputChemArray[1]}
+			completeInputChemArray = append(completeInputChemArray, parsedInputChem)
+		}
+
+		chemicalsNeededForResult[resultName] = completeInputChemArray
+	}
+	var excessChemicals = make(map[string]int)
+	oreNeededForOneFuel := getNeededChemForChemOfAmount("ORE", "FUEL", 1,
+		chemicalsNeededForResult, producedAmount, excessChemicals)
+	fmt.Println("Ore needed for one fuel:", oreNeededForOneFuel)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
