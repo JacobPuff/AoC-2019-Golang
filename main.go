@@ -1079,7 +1079,7 @@ func day12() {
 	var moonVelocities = make([]xyzPoint, len(moonPositions))
 	var total int64 = 0
 	var steps int64 = 0
-	var afterSteps int64 = 10
+	var afterSteps int64 = 1000
 	moonCombos := getMoonCombinations(moonPositions)
 	for repeatCount < 3 || steps < afterSteps {
 		steps++
@@ -1336,17 +1336,11 @@ func getNeededChemForChemOfAmount(neededChem string, resultChem string, amount i
 	var gottenAmount int = 0
 	var scale int = 1
 
-	// If something other than ORE is needed, it can do this,
-	// and I dont want to lower gotten value
-	// because of ore not having anything in its neededChemicals
+	//ORE requires nothing to produce it, so return 0.
 	if resultChem == "ORE" || amount == 0 {
 		return 0
 	}
-	// If chemical A is produced in 4,
-	// and B needs 5 A,
-	// and C needs 2 A,
-	// then dont produce 8 for B and 4 for C, (totals 12, 5 left over)
-	// use 2 A from Bs 8 for C, (totals 8, 1 left over)
+
 	neededChemicals := neededForResult[resultChem]
 	if len(neededChemicals) != 0 {
 		if amount > producedAmount[resultChem] {
@@ -1354,10 +1348,18 @@ func getNeededChemForChemOfAmount(neededChem string, resultChem string, amount i
 
 		}
 		for _, chem := range neededChemicals {
+
 			if chem.name == neededChem {
 				gottenAmount += chem.amount * scale
 				continue
 			}
+
+			// Golang % operator is the remainder function, and so a divide by 0 can happen
+			// This is why I have this here
+			if chem.name == "ORE" {
+				continue
+			}
+
 			// If amountNeeded(4) - excess(5) is less than zero,
 			// amountNeeded is set to 0 and excess would be  excess(5) -= amountNeeded(0).
 			// So this temp is here to keep the amountNeeded value for later
@@ -1382,7 +1384,35 @@ func getNeededChemForChemOfAmount(neededChem string, resultChem string, amount i
 		}
 		return gottenAmount
 	}
-	return -1
+	return 0
+}
+
+func getAmountOfChemProducedFromChemOfAmount(fromChem string, fromChemAmount int, producedChem string,
+	neededForResult map[string][]reactionChem, producedAmount map[string]int) int {
+	var amountNeeded = 0
+	var stepAmount = 1000000
+	var amountGuess = 0
+	var found bool = false
+	for !found {
+		var excess = make(map[string]int)
+		amountGuess += stepAmount
+		amountNeeded = getNeededChemForChemOfAmount(fromChem, producedChem, amountGuess,
+			neededForResult, producedAmount, excess)
+
+		if amountNeeded > fromChemAmount {
+			fmt.Print(amountGuess, " ")
+			amountGuess -= stepAmount
+			if stepAmount == 1 {
+				found = true
+			}
+			stepAmount = int(math.Ceil(float64(stepAmount) / 2))
+			fmt.Print(stepAmount, "\n")
+		}
+
+	}
+
+	return amountGuess
+
 }
 
 func day14() {
@@ -1426,7 +1456,10 @@ func day14() {
 	var excessChemicals = make(map[string]int)
 	oreNeededForOneFuel := getNeededChemForChemOfAmount("ORE", "FUEL", 1,
 		chemicalsNeededForResult, producedAmount, excessChemicals)
+	fuelProducedFromTrillionOre := getAmountOfChemProducedFromChemOfAmount("ORE", 1000000000000, "FUEL",
+		chemicalsNeededForResult, producedAmount)
 	fmt.Println("Ore needed for one fuel:", oreNeededForOneFuel)
+	fmt.Println("Fuel produced from one trillion ore:", fuelProducedFromTrillionOre)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
