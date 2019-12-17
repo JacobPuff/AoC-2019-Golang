@@ -1699,10 +1699,14 @@ func day15() {
 func messageOfLenAtPoint(messageLen, point int, sequence []string) []string {
 	var phases int = 100
 	var basePattern = []int64{0, 1, 0, -1}
+	var replaceNum int64 = 0
+	var addedNumsForPattern int64 = 0
 	for i := 0; i < phases; i++ {
 		var newSequence = make([]string, len(sequence))
-		var replaceNum int64 = 0
-		var addedNumsForPattern int64 = 0
+		if point > len(sequence)/2 {
+			replaceNum = 0
+			addedNumsForPattern = 0
+		}
 		for replaceIndex := 0; replaceIndex < len(sequence); replaceIndex++ {
 			patternIndex := 0
 			count := 1
@@ -1711,6 +1715,8 @@ func messageOfLenAtPoint(messageLen, point int, sequence []string) []string {
 				replaceNum += num
 				newSequence[(len(sequence)-1)-replaceIndex] = strconv.Itoa(int(replaceNum % 10))
 			} else {
+				replaceNum = 0
+				addedNumsForPattern = 0
 				for _, numString := range sequence {
 					num, _ := strconv.ParseInt(numString, 10, 64)
 					if count == replaceIndex+1 {
