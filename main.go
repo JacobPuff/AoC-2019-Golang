@@ -1783,6 +1783,7 @@ const (
 func scaffoldBotIOHandlers() (inputHandler, outputHandler, func() (map[Point]int64, int64, int64)) {
 	var screen = make(map[Point]int64)
 	var x, y, width, height int64
+
 	//A,C,C,B,B,A,A,C,C,B,NEWLINE
 	mainProgram := []int64{A, COMMA, C, COMMA, C, COMMA, B, COMMA, B, COMMA, A, COMMA, A, COMMA, C, COMMA, C, COMMA, B, NEWLINE}
 
@@ -1793,12 +1794,6 @@ func scaffoldBotIOHandlers() (inputHandler, outputHandler, func() (map[Point]int
 	//R,12,R,4,L,12,NEWLINE
 	cProgram := []int64{R, COMMA, 49, 50, COMMA, R, COMMA, 52, COMMA, L, COMMA, 49, 50, NEWLINE}
 
-	//L,12,R,4,R,4
-	//R,12,R,4,L,6,L,8,L,8
-	//R,12,R,4,L,12
-	//A,C,C,B,B,A,A,C,C,B
-	//L,12,R,4,R,4,R,12,R,4,L,12,R,12,R,4,L,12,R,12,R,4,L,6,L,8,L,8,R,12,R,4,L,6,L,8,L,8,L,12,R,4,R,4,L,12,R,4,R,4,R,12,R,4,L,12,R,12,R,4,L,12,R,12,R,4,L,6,L,8,L,8
-	//L,12,R,4,R,4-R,12,R,4,L,12-R,12,R,4,L,12-R,12,R,4,L,6,L,8,L,8-R,12,R,4,L,6,L,8,L,8-L,12,R,4,R,4-L,12,R,4,R,4-R,12,R,4,L,12-R,12,R,4,L,12-R,12,R,4,L,6,L,8,L,8
 	yesNoProgram := []int64{nChar, NEWLINE}
 	currentProgram := 0
 	currentOperation := 0
