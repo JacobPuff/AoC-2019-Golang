@@ -1696,36 +1696,65 @@ func day15() {
 	fmt.Println("Time for oxygen spread:", timeForOxygenSpread)
 }
 
+func messageOfLenAtPoint(messageLen, point int, sequence []string) []string {
+	var phases int = 100
+	var basePattern = []int64{0, 1, 0, -1}
+	for i := 0; i < phases; i++ {
+		var newSequence = make([]string, len(sequence))
+		var replaceNum int64 = 0
+		var addedNumsForPattern int64 = 0
+		for replaceIndex := 0; replaceIndex < len(sequence); replaceIndex++ {
+			patternIndex := 0
+			count := 1
+			if point > len(sequence)/2 {
+				num, _ := strconv.ParseInt(sequence[(len(sequence)-1)-replaceIndex], 10, 64)
+				replaceNum += num
+				newSequence[(len(sequence)-1)-replaceIndex] = strconv.Itoa(int(replaceNum % 10))
+			} else {
+				for _, numString := range sequence {
+					num, _ := strconv.ParseInt(numString, 10, 64)
+					if count == replaceIndex+1 {
+						count = 0
+						replaceNum += addedNumsForPattern * basePattern[patternIndex]
+						addedNumsForPattern = 0
+						patternIndex = (patternIndex + 1) % len(basePattern)
+					}
+
+					if patternIndex == 1 || patternIndex == 3 {
+						addedNumsForPattern += num
+					}
+					count++
+				}
+				// Once more because the loop ends
+				replaceNum += addedNumsForPattern * basePattern[patternIndex]
+				newSequence[replaceIndex] = strconv.Itoa(int(Abs(replaceNum) % 10))
+			}
+		}
+		sequence = newSequence
+	}
+
+	return sequence[point : point+messageLen]
+}
+
 func day16() {
 	var sequenceString string = "59713137269801099632654181286233935219811755500455380934770765569131734596763695509279561685788856471420060118738307712184666979727705799202164390635688439701763288535574113283975613430058332890215685102656193056939765590473237031584326028162831872694742473094498692690926378560215065112055277042957192884484736885085776095601258138827407479864966595805684283736114104361200511149403415264005242802552220930514486188661282691447267079869746222193563352374541269431531666903127492467446100184447658357579189070698707540721959527692466414290626633017164810627099243281653139996025661993610763947987942741831185002756364249992028050315704531567916821944"
 	var sequence = strings.Split(sequenceString, "")
-	var basePattern = []int64{0, 1, 0, -1}
-	var phases = 100
-	for i := 0; i < phases; i++ {
-		var newSequence = make([]string, len(sequence))
-		for replaceIndex := 0; replaceIndex < len(sequence); replaceIndex++ {
-			patternIndex := 0
-			var replaceNum int64 = 0
-			count := 1
-			// fmt.Print("pattern for ", i, ": ")
-			for _, numString := range sequence {
-				if count == replaceIndex+1 {
-					count = 0
-					patternIndex = (patternIndex + 1) % len(basePattern)
-				}
-				num, _ := strconv.ParseInt(numString, 10, 64)
-				replaceNum += num * basePattern[patternIndex]
-				// fmt.Print(replaceIndex, replaceNum, ", ")
-				// fmt.Print(" + ", num, "*", basePattern[patternIndex])
-				count++
-			}
-			// fmt.Print("  replaceNum: ", Abs(replaceNum), "\n")
-			newSequence[replaceIndex] = strconv.Itoa(int(Abs(replaceNum) % 10))
-		}
-		sequence = newSequence
-		// fmt.Println(sequence[0:8])
+
+	// Part 1
+	fmt.Println("First eight digits after 100 phases:", messageOfLenAtPoint(8, 0, sequence))
+
+	// Part 2
+	fmt.Println("Repeating sequence 10,000 times")
+	var expandedSequenceString string
+	for i := 0; i < 10000; i++ {
+		expandedSequenceString += sequenceString
 	}
-	fmt.Print("First eight digits after 100 phases", sequence[0:8])
+	var expandedSequence = strings.Split(expandedSequenceString, "")
+	skipNum, _ := strconv.Atoi(sequenceString[0:7])
+	fmt.Println("Running part 2")
+	trueMessage := messageOfLenAtPoint(8, skipNum, expandedSequence)
+
+	fmt.Println("First eight digits after skipping to point", skipNum, ":", trueMessage)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
