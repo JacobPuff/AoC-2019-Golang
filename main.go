@@ -2066,7 +2066,7 @@ func getDistanceAndDoorsBetweenPointAndKey(startPoint Point, key string, mazeMap
 	}
 	// Use point and return parent of that point
 	var breadthFirstSearchTree = make(map[Point]Point)
-	//Set start point to traveld so its parent isnt overwritten
+	//Set start point to traveled so its parent isnt overwritten
 	mazeCopy[startPoint] = droidTile{mazeCopy[startPoint].tile, true}
 	breadthFirstSearchTree[startPoint] = Point{-1, -1}
 
@@ -2193,7 +2193,142 @@ func day19() {
 	fmt.Println("Wanted coords to fit size of 100x100:", (wantedXCoord*10000)+wantedYCoord)
 }
 
+type teleporter struct {
+	pointA Point
+	pointB Point
+	name   string
+}
+
 func day20() {
+	file, err := os.Open("day20DonutMaze.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	var mazeMap = make(map[Point]droidTile)
+	var teleNameMap = make(map[Point]string)
+	var teleMap = make(map[string]teleporter)
+	scanner := bufio.NewScanner(file)
+
+	var x, y int64
+	for scanner.Scan() {
+		line := scanner.Text()
+		for _, char := range line {
+			if char != ' ' && char != '#' && char != '.' {
+				northPoint := mazeMap[Point{x, y - 1}].tile
+				westPoint := mazeMap[Point{x - 1, y}].tile
+				var telePoint Point
+				var teleName string
+				if northPoint != "" && northPoint != " " && northPoint != "#" && northPoint != "." {
+					//Look up two, to check for a period.
+					if mazeMap[Point{x, y - 2}].tile == "." {
+						telePoint = Point{x, y - 2}
+					} else {
+						telePoint = Point{x, y + 1}
+					}
+					teleName = northPoint + string(char)
+				}
+
+				if westPoint != "" && westPoint != " " && westPoint != "#" && westPoint != "." {
+					//Look back two, to check for a period.
+					if mazeMap[Point{x - 2, y}].tile == "." {
+						telePoint = Point{x - 2, y}
+					} else {
+						telePoint = Point{x + 1, y}
+					}
+					teleName = westPoint + string(char)
+				}
+
+				//Set the teleNameMap and teleMap so I can get the telporters later
+				if telePoint != (Point{0, 0}) {
+					teleNameMap[telePoint] = teleName
+					tele := teleMap[teleName]
+					if tele.pointA == (Point{0, 0}) {
+						tele.pointA = telePoint
+					} else {
+						tele.pointB = telePoint
+					}
+					teleMap[teleName] = tele
+				}
+			}
+
+			// droidTile is still usefull, so Im yoinking it again.
+			mazeMap[Point{x, y}] = droidTile{string(char), false}
+			x++
+		}
+		x = 0
+		y++
+	}
+
+	fmt.Println("Done parsing maze...")
+
+	var shortestPath = []Point{}
+	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
+
+	// AA and ZZ are treated like teleporters,
+	// so I can loop them up that way.
+	// They only have a pointA.
+	var startPos = teleMap["AA"].pointA
+
+	//Take point, return parent
+	var breadthFirstMap = make(map[Point]Point)
+	breadthFirstMap[startPos] = Point{-1, -1}
+	//Make it so startPos is traveled so it doesnt try to move over it and overwrite the parent
+	mazeMap[startPos] = droidTile{".", true}
+
+	var canGotoQueue = []Point{}
+	canGotoQueue = append(canGotoQueue, startPos)
+
+	for len(canGotoQueue) != 0 {
+		var localQueue = make([]Point, len(canGotoQueue))
+		copy(localQueue, canGotoQueue)
+		canGotoQueue = []Point{}
+		for _, point := range localQueue {
+			for _, dir := range availableDirs {
+				dirPoint := getPointForDirection(dir, point)
+				dirTile := mazeMap[dirPoint]
+
+				if teleNameMap[dirPoint] != "" && !dirTile.traveled {
+					breadthFirstMap[dirPoint] = point
+					teleName := teleNameMap[dirPoint]
+					if teleName == "ZZ" {
+						fmt.Println("Found end of maze")
+						currentParent := breadthFirstMap[dirPoint]
+						for currentParent != (Point{-1, -1}) {
+							shortestPath = append(shortestPath, currentParent)
+							currentParent = breadthFirstMap[currentParent]
+						}
+					} else {
+						// fmt.Println("Using teleporter: ", teleName)
+						tele := teleMap[teleName]
+						if dirPoint != tele.pointA {
+							breadthFirstMap[tele.pointA] = dirPoint
+							mazeMap[tele.pointA] = droidTile{".", true}
+							canGotoQueue = append(canGotoQueue, tele.pointA)
+						} else {
+							breadthFirstMap[tele.pointB] = dirPoint
+							mazeMap[tele.pointB] = droidTile{".", true}
+							canGotoQueue = append(canGotoQueue, tele.pointB)
+						}
+						dirTile.traveled = true
+						mazeMap[dirPoint] = dirTile
+					}
+				}
+
+				if dirTile.tile == "." && !dirTile.traveled {
+					dirTile.traveled = true
+					mazeMap[dirPoint] = dirTile
+					breadthFirstMap[dirPoint] = point
+					canGotoQueue = append(canGotoQueue, dirPoint)
+				}
+			}
+		}
+
+	}
+
+	fmt.Print("Shortest path steps:", len(shortestPath))
 
 }
 
