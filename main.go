@@ -66,6 +66,8 @@ func main() {
 		day18()
 	case 19:
 		day19()
+	case 20:
+		day20()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -1886,9 +1888,20 @@ func day17() {
 }
 
 type Route struct {
+	routeName  string
 	pos        Point
 	length     int
 	prevPoints map[string]bool
+}
+
+type keyDoorPath struct {
+	startPos     Point
+	endPos       Point
+	length       int
+	startName    string
+	endName      string
+	doorsBetween []string
+	keysBetween  []string
 }
 
 func day18() {
@@ -1930,30 +1943,137 @@ func day18() {
 			}
 			x++
 		}
+		x = 0
 		y++
 	}
 
 	var listOfRoutes []Route
 	var startRoute Route
 	var shortestRouteSteps = math.MaxInt64
+	// Set start route data
 	startRoute.pos = currentPos
 	startRoute.length = 0
+	startRoute.routeName = "@"
 	startRoute.prevPoints = make(map[string]bool)
-	listOfRoutes = getRoutesFromStartRoute(startRoute, mazeMap, doors, keys, listOfRoutes)
+	startRoute.prevPoints["@"] = true
+	// Make a map to memoize things
+	prevPathsCalculated := make(map[string]keyDoorPath)
+
+	listOfRoutes = getRoutesFromStartRoute(startRoute, prevPathsCalculated, mazeMap, doors, keys, listOfRoutes)
 
 	for _, route := range listOfRoutes {
 		if route.length < shortestRouteSteps {
 			shortestRouteSteps = route.length
 		}
 	}
-	fmt.Print(shortestRouteSteps)
+	fmt.Println("Shortest path for part 1:", shortestRouteSteps)
+	fmt.Println("Key len:", len(keys))
+	// testKeyDoorPath := getDistanceAndDoorsBetweenPointAndKey(currentPos, "d", mazeMap, doors)
+	// fmt.Printf("(Start: {x: %d, y: %d}, End: {x: %d, y: %d}, Length: %d, "+
+	// 	"StartName: %s, EndName: %s, doorsBetween: %v)\n", testKeyDoorPath.startPos.x, testKeyDoorPath.startPos.y,
+	// 	testKeyDoorPath.endPos.x, testKeyDoorPath.endPos.y, testKeyDoorPath.length, testKeyDoorPath.startName,
+	// 	testKeyDoorPath.endName, testKeyDoorPath.doorsBetween)
+	// testKeyDoorPath = getDistanceAndDoorsBetweenPointAndKey(Point{currentPos.x + 6, currentPos.y}, "f", mazeMap, doors)
+	// fmt.Printf("(Start: {x: %d, y: %d}, End: {x: %d, y: %d}, Length: %d, "+
+	// 	"StartName: %s, EndName: %s, doorsBetween: %v)\n", testKeyDoorPath.startPos.x, testKeyDoorPath.startPos.y,
+	// 	testKeyDoorPath.endPos.x, testKeyDoorPath.endPos.y, testKeyDoorPath.length, testKeyDoorPath.startName,
+	// 	testKeyDoorPath.endName, testKeyDoorPath.doorsBetween)
 }
 
-func getRoutesFromStartRoute(route Route, mazeMap map[Point]droidTile, doors map[string]bool, keys map[string]bool, listOfRoutes []Route) []Route {
-	var canGoToQueue []Point
-	var localDist int = 0
-	canGoToQueue = append(canGoToQueue, route.pos)
+func canReachKey(route Route, path keyDoorPath) bool {
+	var canReachKey bool = true
+	for _, door := range path.doorsBetween {
+		if !route.prevPoints[strings.ToLower(door)] {
+			canReachKey = false
+		}
+	}
+	return canReachKey
+}
+
+func getRoutesFromStartRoute(fromRoute Route, prevPathsCalculated map[string]keyDoorPath, mazeMap map[Point]droidTile, doors map[string]bool, keys map[string]bool, listOfRoutes []Route) []Route {
+	// Get all keys that the route doesnt have,
+	// check if we've done calculation to that key from the route position before
+	//
+	// if we have, and we have all the keys for the doors,
+	//    add key and length to route
+	// if we haven't
+	//    search for that key in a breadth first search,
+	//    cache result, and add it to the route
+
+	var route Route = Route{"", Point{0, 0}, 0, make(map[string]bool)}
+
+	for key := range keys {
+		//Make new route instead of reference
+		route.pos = fromRoute.pos
+		route.length = fromRoute.length
+		route.routeName = fromRoute.routeName
+		// Copy prevPoints so its not a reference
+		for key, val := range fromRoute.prevPoints {
+			route.prevPoints[key] = val
+		}
+		if !route.prevPoints[key] {
+
+			cacheString := fmt.Sprintf("({x: %d, y: %d}, key: %s)", route.pos.x, route.pos.y, key)
+			// I used length to see if a value existed because it has a default of 0,
+			// and its easy to understand that there shouldnt be a length of 0.
+			var pathToKey keyDoorPath
+			if prevPathsCalculated[cacheString].length != 0 {
+				pathToKey = prevPathsCalculated[cacheString]
+			} else {
+				pathToKey = getDistanceAndDoorsBetweenPointAndKey(route.pos, key, mazeMap, doors, keys)
+				prevPathsCalculated[cacheString] = pathToKey
+			}
+			// fmt.Println("KEY NUM:", keyNum, "KEY:", key)
+			// keyNum++
+
+			if canReachKey(route, pathToKey) {
+				route.routeName += key
+				for _, keyName := range pathToKey.keysBetween {
+					route.prevPoints[keyName] = true
+				}
+				// route.prevPoints[key] = true
+				route.length += pathToKey.length
+				route.pos = pathToKey.endPos
+				newListOfRoutes := getRoutesFromStartRoute(route, prevPathsCalculated, mazeMap, doors, keys, listOfRoutes)
+				listOfRoutes = append(listOfRoutes, newListOfRoutes...)
+			}
+
+		}
+	}
+
+	var hasAllKeys = true
+	for key := range keys {
+		if route.prevPoints[key] == false {
+			hasAllKeys = false
+		}
+	}
+	if hasAllKeys {
+		fmt.Println("finished route", fromRoute.routeName, len(route.prevPoints), route.length)
+		listOfRoutes = append(listOfRoutes, fromRoute)
+	}
+	return listOfRoutes
+}
+
+func getDistanceAndDoorsBetweenPointAndKey(startPoint Point, key string, mazeMap map[Point]droidTile, doors map[string]bool, keys map[string]bool) keyDoorPath {
 	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
+	var canGoToQueue []Point
+	// var localDist int = 0
+	canGoToQueue = append(canGoToQueue, startPoint)
+	var mazeCopy = make(map[Point]droidTile)
+	// Copy mazeMap
+	for key, val := range mazeMap {
+		mazeCopy[key] = val
+	}
+	// Use point and return parent of that point
+	var breadthFirstSearchTree = make(map[Point]Point)
+	//Set start point to traveld so its parent isnt overwritten
+	mazeCopy[startPoint] = droidTile{mazeCopy[startPoint].tile, true}
+	breadthFirstSearchTree[startPoint] = Point{-1, -1}
+
+	var keyDoorPathToReturn keyDoorPath
+	keyDoorPathToReturn.startPos = startPoint
+	keyDoorPathToReturn.startName = mazeCopy[startPoint].tile
+	keyDoorPathToReturn.endName = key
 
 	for len(canGoToQueue) != 0 {
 		var currentQueue = make([]Point, len(canGoToQueue))
@@ -1962,40 +2082,39 @@ func getRoutesFromStartRoute(route Route, mazeMap map[Point]droidTile, doors map
 		for _, point := range currentQueue {
 			for _, dir := range availableDirs {
 				dirPoint := getPointForDirection(dir, point)
-				dirTile := mazeMap[dirPoint]
-				localDist++
+				dirTile := mazeCopy[dirPoint]
+				currentParent := point
 
-				if doors[dirTile.tile] {
-					//Check if we have the key
-					if !route.prevPoints[strings.ToLower(dirTile.tile)] {
-						continue
+				if dirTile.tile == key {
+					//fmt.Println("found key", dirTile.tile)
+					keyDoorPathToReturn.endPos = dirPoint
+					for currentParent != (Point{-1, -1}) {
+						parentTile := mazeCopy[currentParent]
+						if doors[mazeCopy[currentParent].tile] {
+							keyDoorPathToReturn.doorsBetween = append(keyDoorPathToReturn.doorsBetween, parentTile.tile)
+						}
+						// Add all keys along the way
+						if keys[mazeCopy[currentParent].tile] {
+							keyDoorPathToReturn.keysBetween = append(keyDoorPathToReturn.keysBetween, parentTile.tile)
+						}
+						keyDoorPathToReturn.length++
+						currentParent = breadthFirstSearchTree[currentParent]
 					}
-				}
-
-				if keys[dirTile.tile] {
-					if route.prevPoints[dirTile.tile] == false {
-						route.length += localDist
-						route.pos = point
-						newListOfRoutes := getRoutesFromStartRoute(Route{route.pos, route.length, route.prevPoints}, mazeMap, doors, keys, listOfRoutes)
-						listOfRoutes = append(listOfRoutes, newListOfRoutes...)
-					}
-					route.prevPoints[dirTile.tile] = true
-					fmt.Println("found key", dirTile.tile)
-					continue
+					return keyDoorPathToReturn
 				}
 
 				if dirTile.tile != "#" && dirTile.tile != "" && !dirTile.traveled {
+					breadthFirstSearchTree[dirPoint] = currentParent
 					dirTile.traveled = true
-					fmt.Println("doing thing", dirPoint)
-					mazeMap[dirPoint] = dirTile
+					mazeCopy[dirPoint] = dirTile
 					canGoToQueue = append(canGoToQueue, dirPoint)
 				}
 			}
 		}
 	}
-	fmt.Println("finished route", route)
-	listOfRoutes = append(listOfRoutes, route)
-	return listOfRoutes
+	//It shouldn't get to this point if a key exists
+	keyDoorPathToReturn.endName = "ERROR"
+	return keyDoorPathToReturn
 }
 
 func tractorBeamDroneIOHandlers(x, y int64) (inputHandler, outputHandler, func() bool) {
@@ -2025,10 +2144,10 @@ func day19() {
 	var tractorBeamDroneProgram = makeMapForArray(tractorBeamDroneProgramArr)
 	pointsAffected := 0
 	var x, y int64
-	var sizeX int64 = 50
-	var sizeY int64 = 50
-	var width int64 = 100
-	var height int64 = 100
+	var sizeX int64 = 100
+	var sizeY int64 = 100
+	var width int64 = 50
+	var height int64 = 50
 	var wantedXCoord int64
 	var wantedYCoord int64
 	for y = 0; y < height; y++ {
@@ -2072,6 +2191,10 @@ func day19() {
 		}
 	}
 	fmt.Println("Wanted coords to fit size of 100x100:", (wantedXCoord*10000)+wantedYCoord)
+}
+
+func day20() {
+
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
