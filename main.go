@@ -68,6 +68,8 @@ func main() {
 		day19()
 	case 20:
 		day20()
+	case 21:
+		day21()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -2207,23 +2209,23 @@ func day20() {
 
 	defer file.Close()
 
-	var mazeMap = make(map[Point]droidTile)
+	var mazeMap = make(map[Point]string)
 	var teleNameMap = make(map[Point]string)
 	var teleMap = make(map[string]teleporter)
 	scanner := bufio.NewScanner(file)
 
-	var x, y int64
+	var x, y, width, height int64
 	for scanner.Scan() {
 		line := scanner.Text()
 		for _, char := range line {
 			if char != ' ' && char != '#' && char != '.' {
-				northPoint := mazeMap[Point{x, y - 1}].tile
-				westPoint := mazeMap[Point{x - 1, y}].tile
+				northPoint := mazeMap[Point{x, y - 1}]
+				westPoint := mazeMap[Point{x - 1, y}]
 				var telePoint Point
 				var teleName string
 				if northPoint != "" && northPoint != " " && northPoint != "#" && northPoint != "." {
 					//Look up two, to check for a period.
-					if mazeMap[Point{x, y - 2}].tile == "." {
+					if mazeMap[Point{x, y - 2}] == "." {
 						telePoint = Point{x, y - 2}
 					} else {
 						telePoint = Point{x, y + 1}
@@ -2233,7 +2235,7 @@ func day20() {
 
 				if westPoint != "" && westPoint != " " && westPoint != "#" && westPoint != "." {
 					//Look back two, to check for a period.
-					if mazeMap[Point{x - 2, y}].tile == "." {
+					if mazeMap[Point{x - 2, y}] == "." {
 						telePoint = Point{x - 2, y}
 					} else {
 						telePoint = Point{x + 1, y}
@@ -2254,8 +2256,9 @@ func day20() {
 				}
 			}
 
-			// droidTile is still usefull, so Im yoinking it again.
-			mazeMap[Point{x, y}] = droidTile{string(char), false}
+			mazeMap[Point{x, y}] = string(char)
+			width = x
+			height = y
 			x++
 		}
 		x = 0
@@ -2264,7 +2267,7 @@ func day20() {
 
 	fmt.Println("Done parsing maze...")
 
-	var shortestPath = []Point{}
+	var shortestPathWithoutLevels = []Point{}
 	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
 
 	// AA and ZZ are treated like teleporters,
@@ -2275,12 +2278,18 @@ func day20() {
 	//Take point, return parent
 	var breadthFirstMap = make(map[Point]Point)
 	breadthFirstMap[startPos] = Point{-1, -1}
+
 	//Make it so startPos is traveled so it doesnt try to move over it and overwrite the parent
-	mazeMap[startPos] = droidTile{".", true}
+	var traveledMap = make(map[Point]bool)
+	traveledMap[startPos] = true
 
 	var canGotoQueue = []Point{}
 	canGotoQueue = append(canGotoQueue, startPos)
 
+	// This is the part 1 breadth first search.
+	// I was going to reduce the amount of code,
+	// and try and do both parts at the same time,
+	// but I wanted to make it easy to read and understand.
 	for len(canGotoQueue) != 0 {
 		var localQueue = make([]Point, len(canGotoQueue))
 		copy(localQueue, canGotoQueue)
@@ -2290,14 +2299,14 @@ func day20() {
 				dirPoint := getPointForDirection(dir, point)
 				dirTile := mazeMap[dirPoint]
 
-				if teleNameMap[dirPoint] != "" && !dirTile.traveled {
+				if teleNameMap[dirPoint] != "" && !traveledMap[dirPoint] {
 					breadthFirstMap[dirPoint] = point
 					teleName := teleNameMap[dirPoint]
 					if teleName == "ZZ" {
-						fmt.Println("Found end of maze")
+						fmt.Println("Found end of maze without levels...")
 						currentParent := breadthFirstMap[dirPoint]
 						for currentParent != (Point{-1, -1}) {
-							shortestPath = append(shortestPath, currentParent)
+							shortestPathWithoutLevels = append(shortestPathWithoutLevels, currentParent)
 							currentParent = breadthFirstMap[currentParent]
 						}
 					} else {
@@ -2305,31 +2314,208 @@ func day20() {
 						tele := teleMap[teleName]
 						if dirPoint != tele.pointA {
 							breadthFirstMap[tele.pointA] = dirPoint
-							mazeMap[tele.pointA] = droidTile{".", true}
+							traveledMap[tele.pointA] = true
 							canGotoQueue = append(canGotoQueue, tele.pointA)
 						} else {
 							breadthFirstMap[tele.pointB] = dirPoint
-							mazeMap[tele.pointB] = droidTile{".", true}
+							traveledMap[tele.pointB] = true
 							canGotoQueue = append(canGotoQueue, tele.pointB)
 						}
-						dirTile.traveled = true
+						traveledMap[dirPoint] = true
 						mazeMap[dirPoint] = dirTile
 					}
 				}
 
-				if dirTile.tile == "." && !dirTile.traveled {
-					dirTile.traveled = true
-					mazeMap[dirPoint] = dirTile
+				if dirTile == "." && !traveledMap[dirPoint] {
+					traveledMap[dirPoint] = true
 					breadthFirstMap[dirPoint] = point
 					canGotoQueue = append(canGotoQueue, dirPoint)
 				}
 			}
 		}
+	}
+
+	var shortestPathWithLevels = []xyzPoint{}
+	var leftAndTopEdgeOffset int64 = 2
+	var rightEdgeOffset int64 = width - 2
+	var bottomEdgeOffset int64 = height - 2
+
+	var xyzStartPos = xyzPoint{teleMap["AA"].pointA.x, teleMap["AA"].pointA.y, 0}
+
+	//Take point, return parent
+	var xyzBreadthFirstMap = make(map[xyzPoint]xyzPoint)
+	xyzBreadthFirstMap[xyzStartPos] = xyzPoint{-1, -1, 0}
+
+	//Make it so startPos is traveled so it doesnt try to move over it and overwrite the parent
+	var xyzTraveledMap = make(map[xyzPoint]bool)
+	xyzTraveledMap[xyzStartPos] = true
+
+	var xyzCanGotoQueue = []xyzPoint{}
+	xyzCanGotoQueue = append(xyzCanGotoQueue, xyzStartPos)
+
+	for len(xyzCanGotoQueue) != 0 && len(shortestPathWithLevels) == 0 {
+		var localQueue = make([]xyzPoint, len(xyzCanGotoQueue))
+		copy(localQueue, xyzCanGotoQueue)
+		xyzCanGotoQueue = []xyzPoint{}
+		for _, point := range localQueue {
+			for _, dir := range availableDirs {
+				dirXYPoint := getPointForDirection(dir, Point{point.x, point.y})
+				dirPoint := xyzPoint{dirXYPoint.x, dirXYPoint.y, point.z}
+				dirTile := mazeMap[dirXYPoint]
+
+				if teleNameMap[dirXYPoint] != "" && dirTile == "." && !xyzTraveledMap[dirPoint] {
+					xyzBreadthFirstMap[dirPoint] = point
+					teleName := teleNameMap[dirXYPoint]
+					if teleName == "ZZ" {
+						// fmt.Println("Found zz at level:", dirPoint.z)
+						if point.z == 0 {
+							fmt.Println("Found end of maze with levels")
+							currentParent := xyzBreadthFirstMap[dirPoint]
+							for currentParent != (xyzPoint{-1, -1, 0}) {
+
+								shortestPathWithLevels = append(shortestPathWithLevels, currentParent)
+
+								currentParent = xyzBreadthFirstMap[currentParent]
+							}
+						}
+					} else if teleName != "AA" {
+						tele := teleMap[teleName]
+						var teleXYZPoint xyzPoint
+						var level = point.z
+						if dirXYPoint == tele.pointB {
+							// Because pointA is not equal, we are at pointB.
+							// So if pointA is on the outer edge,
+							// then we are going one level deeper at pointB on the inner edge,
+							// so add one to level.
+							if tele.pointA.x == leftAndTopEdgeOffset || tele.pointA.y == leftAndTopEdgeOffset ||
+								tele.pointA.x == rightEdgeOffset || tele.pointA.y == bottomEdgeOffset {
+								level++
+							} else {
+								level--
+							}
+
+							if level >= 0 && level < int64(len(teleNameMap)) {
+								teleXYZPoint = xyzPoint{tele.pointA.x, tele.pointA.y, level}
+							}
+						} else {
+							if tele.pointB.x == leftAndTopEdgeOffset || tele.pointB.y == leftAndTopEdgeOffset ||
+								tele.pointB.x == rightEdgeOffset || tele.pointB.y == bottomEdgeOffset {
+								level++
+							} else {
+								level--
+							}
+
+							if level >= 0 && level < int64(len(teleNameMap)) {
+								teleXYZPoint = xyzPoint{tele.pointB.x, tele.pointB.y, level}
+							}
+						}
+						//Dont check z axis because level can be 0
+						if teleXYZPoint.x != 0 && teleXYZPoint.y != 0 {
+							// fmt.Println("Using teleporter: ", teleName, "from level:", point.z, "to go to level:", level)
+							xyzTraveledMap[dirPoint] = true
+							xyzBreadthFirstMap[teleXYZPoint] = dirPoint
+							xyzTraveledMap[teleXYZPoint] = true
+							xyzCanGotoQueue = append(xyzCanGotoQueue, teleXYZPoint)
+						}
+					}
+				}
+
+				if dirTile == "." && !xyzTraveledMap[dirPoint] {
+					xyzTraveledMap[dirPoint] = true
+					xyzBreadthFirstMap[dirPoint] = point
+					xyzCanGotoQueue = append(xyzCanGotoQueue, dirPoint)
+				}
+			}
+		}
+	}
+
+	fmt.Println("Shortest path steps without levels:", len(shortestPathWithoutLevels))
+	fmt.Println("Shortest path steps with levels:", len(shortestPathWithLevels))
+
+}
+
+const (
+	D     int64 = 68
+	E     int64 = 69
+	F     int64 = 70
+	G     int64 = 71
+	H     int64 = 72
+	I     int64 = 73
+	J     int64 = 74
+	K     int64 = 75
+	N     int64 = 78
+	O     int64 = 79
+	T     int64 = 84
+	U     int64 = 85
+	W     int64 = 87
+	SPACE int64 = 32
+)
+
+func springDroidIOHandlers(shouldRun bool) (inputHandler, outputHandler) {
+	var currentChar = 0
+	var droidProgram []int64
+
+	if !shouldRun {
+		// Check if spaces A, B, and C, exist.
+		// Only if they all exist T will be set to true.
+		// If T is false, one of those three is gone.
+		// Wait until we can land on space D to jump.
+		droidProgram = []int64{
+			O, R, SPACE, A, SPACE, T, NEWLINE,
+			A, N, D, SPACE, B, SPACE, T, NEWLINE,
+			A, N, D, SPACE, C, SPACE, T, NEWLINE,
+			N, O, T, SPACE, T, SPACE, J, NEWLINE,
+			A, N, D, SPACE, D, SPACE, J, NEWLINE,
+			W, A, L, K, NEWLINE}
+	} else {
+		droidProgram = []int64{
+			// E lines up jumps that are off a little bit,
+			// and H prevents E from killing the bot
+			// AND D J could be moved above the E H lines,
+			// because the droid has memory from its last state,
+			// but this is easier to read.
+			O, R, SPACE, A, SPACE, T, NEWLINE,
+			A, N, D, SPACE, B, SPACE, T, NEWLINE,
+			A, N, D, SPACE, C, SPACE, T, NEWLINE,
+			N, O, T, SPACE, T, SPACE, J, NEWLINE,
+
+			O, R, SPACE, E, SPACE, T, NEWLINE,
+			O, R, SPACE, H, SPACE, T, NEWLINE,
+			A, N, D, SPACE, T, SPACE, J, NEWLINE,
+			A, N, D, SPACE, D, SPACE, J, NEWLINE,
+			R, U, N, NEWLINE}
 
 	}
 
-	fmt.Print("Shortest path steps:", len(shortestPath))
+	in := func() int64 {
+		toReturn := droidProgram[currentChar]
+		fmt.Print(string(toReturn))
+		currentChar++
+		return toReturn
+	}
+	out := func(output int64) {
+		if output > 128 {
+			fmt.Println(output)
+		} else {
+			fmt.Print(string(output))
+		}
 
+	}
+
+	return in, out
+}
+
+func day21() {
+	var springDroidProgramArr = []int64{109, 2050, 21101, 0, 966, 1, 21102, 1, 13, 0, 1105, 1, 1378, 21101, 0, 20, 0, 1106, 0, 1337, 21101, 0, 27, 0, 1106, 0, 1279, 1208, 1, 65, 748, 1005, 748, 73, 1208, 1, 79, 748, 1005, 748, 110, 1208, 1, 78, 748, 1005, 748, 132, 1208, 1, 87, 748, 1005, 748, 169, 1208, 1, 82, 748, 1005, 748, 239, 21102, 1041, 1, 1, 21101, 73, 0, 0, 1105, 1, 1421, 21101, 78, 0, 1, 21102, 1041, 1, 2, 21102, 1, 88, 0, 1105, 1, 1301, 21101, 0, 68, 1, 21101, 1041, 0, 2, 21102, 1, 103, 0, 1106, 0, 1301, 1101, 0, 1, 750, 1106, 0, 298, 21102, 1, 82, 1, 21101, 1041, 0, 2, 21101, 0, 125, 0, 1106, 0, 1301, 1101, 0, 2, 750, 1105, 1, 298, 21101, 0, 79, 1, 21101, 1041, 0, 2, 21102, 147, 1, 0, 1106, 0, 1301, 21101, 84, 0, 1, 21102, 1041, 1, 2, 21102, 162, 1, 0, 1105, 1, 1301, 1101, 3, 0, 750, 1106, 0, 298, 21101, 0, 65, 1, 21101, 1041, 0, 2, 21101, 184, 0, 0, 1106, 0, 1301, 21101, 76, 0, 1, 21101, 1041, 0, 2, 21102, 199, 1, 0, 1106, 0, 1301, 21102, 1, 75, 1, 21101, 0, 1041, 2, 21101, 0, 214, 0, 1106, 0, 1301, 21102, 221, 1, 0, 1106, 0, 1337, 21101, 10, 0, 1, 21101, 0, 1041, 2, 21101, 0, 236, 0, 1105, 1, 1301, 1106, 0, 553, 21101, 0, 85, 1, 21102, 1, 1041, 2, 21102, 1, 254, 0, 1105, 1, 1301, 21101, 0, 78, 1, 21101, 1041, 0, 2, 21102, 1, 269, 0, 1106, 0, 1301, 21101, 276, 0, 0, 1106, 0, 1337, 21101, 10, 0, 1, 21101, 1041, 0, 2, 21101, 291, 0, 0, 1106, 0, 1301, 1102, 1, 1, 755, 1106, 0, 553, 21102, 1, 32, 1, 21101, 0, 1041, 2, 21102, 313, 1, 0, 1106, 0, 1301, 21101, 320, 0, 0, 1106, 0, 1337, 21102, 1, 327, 0, 1106, 0, 1279, 2102, 1, 1, 749, 21101, 65, 0, 2, 21101, 0, 73, 3, 21102, 346, 1, 0, 1105, 1, 1889, 1206, 1, 367, 1007, 749, 69, 748, 1005, 748, 360, 1102, 1, 1, 756, 1001, 749, -64, 751, 1106, 0, 406, 1008, 749, 74, 748, 1006, 748, 381, 1101, 0, -1, 751, 1105, 1, 406, 1008, 749, 84, 748, 1006, 748, 395, 1102, 1, -2, 751, 1105, 1, 406, 21102, 1100, 1, 1, 21102, 406, 1, 0, 1105, 1, 1421, 21101, 32, 0, 1, 21101, 1100, 0, 2, 21101, 0, 421, 0, 1105, 1, 1301, 21101, 428, 0, 0, 1105, 1, 1337, 21101, 435, 0, 0, 1105, 1, 1279, 2101, 0, 1, 749, 1008, 749, 74, 748, 1006, 748, 453, 1101, 0, -1, 752, 1105, 1, 478, 1008, 749, 84, 748, 1006, 748, 467, 1101, 0, -2, 752, 1105, 1, 478, 21102, 1168, 1, 1, 21101, 478, 0, 0, 1105, 1, 1421, 21102, 1, 485, 0, 1106, 0, 1337, 21102, 1, 10, 1, 21101, 1168, 0, 2, 21102, 1, 500, 0, 1106, 0, 1301, 1007, 920, 15, 748, 1005, 748, 518, 21101, 0, 1209, 1, 21102, 1, 518, 0, 1105, 1, 1421, 1002, 920, 3, 529, 1001, 529, 921, 529, 1001, 750, 0, 0, 1001, 529, 1, 537, 1001, 751, 0, 0, 1001, 537, 1, 545, 102, 1, 752, 0, 1001, 920, 1, 920, 1105, 1, 13, 1005, 755, 577, 1006, 756, 570, 21101, 1100, 0, 1, 21101, 0, 570, 0, 1106, 0, 1421, 21101, 0, 987, 1, 1105, 1, 581, 21102, 1001, 1, 1, 21102, 1, 588, 0, 1106, 0, 1378, 1102, 1, 758, 594, 102, 1, 0, 753, 1006, 753, 654, 21002, 753, 1, 1, 21102, 1, 610, 0, 1106, 0, 667, 21101, 0, 0, 1, 21101, 0, 621, 0, 1105, 1, 1463, 1205, 1, 647, 21101, 0, 1015, 1, 21101, 635, 0, 0, 1105, 1, 1378, 21102, 1, 1, 1, 21101, 646, 0, 0, 1105, 1, 1463, 99, 1001, 594, 1, 594, 1105, 1, 592, 1006, 755, 664, 1102, 0, 1, 755, 1106, 0, 647, 4, 754, 99, 109, 2, 1102, 1, 726, 757, 22102, 1, -1, 1, 21102, 1, 9, 2, 21101, 697, 0, 3, 21101, 0, 692, 0, 1105, 1, 1913, 109, -2, 2105, 1, 0, 109, 2, 101, 0, 757, 706, 2101, 0, -1, 0, 1001, 757, 1, 757, 109, -2, 2106, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 63, 95, 159, 191, 223, 127, 0, 109, 152, 253, 182, 236, 231, 212, 42, 69, 154, 142, 196, 86, 214, 120, 166, 139, 175, 117, 102, 178, 124, 204, 189, 59, 156, 244, 92, 110, 184, 241, 87, 220, 245, 122, 167, 227, 53, 50, 197, 93, 85, 234, 190, 252, 248, 54, 163, 217, 94, 207, 58, 115, 70, 99, 71, 188, 247, 168, 221, 116, 239, 155, 186, 232, 49, 213, 218, 137, 103, 56, 170, 119, 34, 242, 76, 169, 173, 46, 172, 187, 171, 141, 153, 238, 61, 125, 121, 222, 199, 243, 174, 229, 235, 226, 201, 215, 108, 138, 126, 78, 249, 62, 51, 79, 57, 118, 181, 38, 39, 84, 228, 55, 77, 113, 179, 107, 136, 198, 140, 35, 246, 205, 162, 219, 43, 68, 185, 111, 237, 100, 183, 47, 157, 98, 230, 114, 158, 202, 216, 203, 200, 206, 106, 233, 254, 143, 60, 251, 101, 250, 177, 123, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 73, 110, 112, 117, 116, 32, 105, 110, 115, 116, 114, 117, 99, 116, 105, 111, 110, 115, 58, 10, 13, 10, 87, 97, 108, 107, 105, 110, 103, 46, 46, 46, 10, 10, 13, 10, 82, 117, 110, 110, 105, 110, 103, 46, 46, 46, 10, 10, 25, 10, 68, 105, 100, 110, 39, 116, 32, 109, 97, 107, 101, 32, 105, 116, 32, 97, 99, 114, 111, 115, 115, 58, 10, 10, 58, 73, 110, 118, 97, 108, 105, 100, 32, 111, 112, 101, 114, 97, 116, 105, 111, 110, 59, 32, 101, 120, 112, 101, 99, 116, 101, 100, 32, 115, 111, 109, 101, 116, 104, 105, 110, 103, 32, 108, 105, 107, 101, 32, 65, 78, 68, 44, 32, 79, 82, 44, 32, 111, 114, 32, 78, 79, 84, 67, 73, 110, 118, 97, 108, 105, 100, 32, 102, 105, 114, 115, 116, 32, 97, 114, 103, 117, 109, 101, 110, 116, 59, 32, 101, 120, 112, 101, 99, 116, 101, 100, 32, 115, 111, 109, 101, 116, 104, 105, 110, 103, 32, 108, 105, 107, 101, 32, 65, 44, 32, 66, 44, 32, 67, 44, 32, 68, 44, 32, 74, 44, 32, 111, 114, 32, 84, 40, 73, 110, 118, 97, 108, 105, 100, 32, 115, 101, 99, 111, 110, 100, 32, 97, 114, 103, 117, 109, 101, 110, 116, 59, 32, 101, 120, 112, 101, 99, 116, 101, 100, 32, 74, 32, 111, 114, 32, 84, 52, 79, 117, 116, 32, 111, 102, 32, 109, 101, 109, 111, 114, 121, 59, 32, 97, 116, 32, 109, 111, 115, 116, 32, 49, 53, 32, 105, 110, 115, 116, 114, 117, 99, 116, 105, 111, 110, 115, 32, 99, 97, 110, 32, 98, 101, 32, 115, 116, 111, 114, 101, 100, 0, 109, 1, 1005, 1262, 1270, 3, 1262, 20102, 1, 1262, 0, 109, -1, 2106, 0, 0, 109, 1, 21102, 1288, 1, 0, 1105, 1, 1263, 20101, 0, 1262, 0, 1101, 0, 0, 1262, 109, -1, 2106, 0, 0, 109, 5, 21102, 1, 1310, 0, 1106, 0, 1279, 22102, 1, 1, -2, 22208, -2, -4, -1, 1205, -1, 1332, 21201, -3, 0, 1, 21101, 0, 1332, 0, 1106, 0, 1421, 109, -5, 2106, 0, 0, 109, 2, 21101, 0, 1346, 0, 1105, 1, 1263, 21208, 1, 32, -1, 1205, -1, 1363, 21208, 1, 9, -1, 1205, -1, 1363, 1106, 0, 1373, 21101, 1370, 0, 0, 1106, 0, 1279, 1105, 1, 1339, 109, -2, 2106, 0, 0, 109, 5, 1201, -4, 0, 1385, 21001, 0, 0, -2, 22101, 1, -4, -4, 21102, 0, 1, -3, 22208, -3, -2, -1, 1205, -1, 1416, 2201, -4, -3, 1408, 4, 0, 21201, -3, 1, -3, 1106, 0, 1396, 109, -5, 2106, 0, 0, 109, 2, 104, 10, 22102, 1, -1, 1, 21102, 1, 1436, 0, 1106, 0, 1378, 104, 10, 99, 109, -2, 2105, 1, 0, 109, 3, 20002, 594, 753, -1, 22202, -1, -2, -1, 201, -1, 754, 754, 109, -3, 2106, 0, 0, 109, 10, 21101, 5, 0, -5, 21102, 1, 1, -4, 21102, 0, 1, -3, 1206, -9, 1555, 21101, 3, 0, -6, 21102, 1, 5, -7, 22208, -7, -5, -8, 1206, -8, 1507, 22208, -6, -4, -8, 1206, -8, 1507, 104, 64, 1105, 1, 1529, 1205, -6, 1527, 1201, -7, 716, 1515, 21002, 0, -11, -8, 21201, -8, 46, -8, 204, -8, 1105, 1, 1529, 104, 46, 21201, -7, 1, -7, 21207, -7, 22, -8, 1205, -8, 1488, 104, 10, 21201, -6, -1, -6, 21207, -6, 0, -8, 1206, -8, 1484, 104, 10, 21207, -4, 1, -8, 1206, -8, 1569, 21102, 0, 1, -9, 1106, 0, 1689, 21208, -5, 21, -8, 1206, -8, 1583, 21102, 1, 1, -9, 1105, 1, 1689, 1201, -5, 716, 1588, 21001, 0, 0, -2, 21208, -4, 1, -1, 22202, -2, -1, -1, 1205, -2, 1613, 22101, 0, -5, 1, 21101, 1613, 0, 0, 1105, 1, 1444, 1206, -1, 1634, 22101, 0, -5, 1, 21101, 1627, 0, 0, 1105, 1, 1694, 1206, 1, 1634, 21102, 1, 2, -3, 22107, 1, -4, -8, 22201, -1, -8, -8, 1206, -8, 1649, 21201, -5, 1, -5, 1206, -3, 1663, 21201, -3, -1, -3, 21201, -4, 1, -4, 1106, 0, 1667, 21201, -4, -1, -4, 21208, -4, 0, -1, 1201, -5, 716, 1676, 22002, 0, -1, -1, 1206, -1, 1686, 21101, 1, 0, -4, 1106, 0, 1477, 109, -10, 2106, 0, 0, 109, 11, 21101, 0, 0, -6, 21102, 1, 0, -8, 21101, 0, 0, -7, 20208, -6, 920, -9, 1205, -9, 1880, 21202, -6, 3, -9, 1201, -9, 921, 1724, 21002, 0, 1, -5, 1001, 1724, 1, 1732, 21001, 0, 0, -4, 21201, -4, 0, 1, 21102, 1, 1, 2, 21102, 9, 1, 3, 21102, 1754, 1, 0, 1105, 1, 1889, 1206, 1, 1772, 2201, -10, -4, 1766, 1001, 1766, 716, 1766, 21001, 0, 0, -3, 1106, 0, 1790, 21208, -4, -1, -9, 1206, -9, 1786, 22101, 0, -8, -3, 1106, 0, 1790, 22102, 1, -7, -3, 1001, 1732, 1, 1796, 20102, 1, 0, -2, 21208, -2, -1, -9, 1206, -9, 1812, 22102, 1, -8, -1, 1105, 1, 1816, 21202, -7, 1, -1, 21208, -5, 1, -9, 1205, -9, 1837, 21208, -5, 2, -9, 1205, -9, 1844, 21208, -3, 0, -1, 1105, 1, 1855, 22202, -3, -1, -1, 1106, 0, 1855, 22201, -3, -1, -1, 22107, 0, -1, -1, 1106, 0, 1855, 21208, -2, -1, -9, 1206, -9, 1869, 21202, -1, 1, -8, 1105, 1, 1873, 21202, -1, 1, -7, 21201, -6, 1, -6, 1106, 0, 1708, 21201, -8, 0, -10, 109, -11, 2105, 1, 0, 109, 7, 22207, -6, -5, -3, 22207, -4, -6, -2, 22201, -3, -2, -1, 21208, -1, 0, -6, 109, -7, 2106, 0, 0, 0, 109, 5, 1202, -2, 1, 1912, 21207, -4, 0, -1, 1206, -1, 1930, 21101, 0, 0, -4, 22101, 0, -4, 1, 21202, -3, 1, 2, 21102, 1, 1, 3, 21102, 1949, 1, 0, 1106, 0, 1954, 109, -5, 2105, 1, 0, 109, 6, 21207, -4, 1, -1, 1206, -1, 1977, 22207, -5, -3, -1, 1206, -1, 1977, 21201, -5, 0, -5, 1105, 1, 2045, 21202, -5, 1, 1, 21201, -4, -1, 2, 21202, -3, 2, 3, 21102, 1, 1996, 0, 1105, 1, 1954, 21201, 1, 0, -5, 21102, 1, 1, -2, 22207, -5, -3, -1, 1206, -1, 2015, 21101, 0, 0, -2, 22202, -3, -2, -3, 22107, 0, -4, -1, 1206, -1, 2037, 22102, 1, -2, 1, 21101, 2037, 0, 0, 106, 0, 1912, 21202, -3, -1, -3, 22201, -5, -3, -5, 109, -6, 2106, 0, 0}
+	var springDroidProgram = makeMapForArray(springDroidProgramArr)
+
+	// Part 1 with walking
+	in, out := springDroidIOHandlers(false)
+	intComp(springDroidProgram, in, out)
+
+	// Part 2 with running
+	in, out = springDroidIOHandlers(true)
+	intComp(springDroidProgram, in, out)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
