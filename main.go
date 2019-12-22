@@ -70,6 +70,8 @@ func main() {
 		day20()
 	case 21:
 		day21()
+	case 22:
+		day22()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -2516,6 +2518,146 @@ func day21() {
 	// Part 2 with running
 	in, out = springDroidIOHandlers(true)
 	intComp(springDroidProgram, in, out)
+}
+
+type cardShuffleInstruction struct {
+	instructionType string
+	value           int
+}
+
+func cutDeck(cardsArr []int64, numToCut int) []int64 {
+	var newCardsArr []int64
+	if numToCut > 0 {
+		newCardsArr = append(newCardsArr, cardsArr[numToCut:]...)
+		newCardsArr = append(newCardsArr, cardsArr[:numToCut]...)
+	} else {
+		numToCut = int(Abs(int64(numToCut)))
+		newCardsArr = append(newCardsArr, cardsArr[len(cardsArr)-numToCut:]...)
+		newCardsArr = append(newCardsArr, cardsArr[:len(cardsArr)-numToCut]...)
+	}
+	return newCardsArr
+}
+
+func dealWithIncrement(cardsArr []int64, increment int) []int64 {
+	var newCardsArr = make([]int64, len(cardsArr))
+	var cardsDealt = 0
+	var dealFromIndex = 0
+	var dealToIndex = 0
+
+	// //Set all cards to -1 to know if all cards have been dealt
+	// for i := 0; i < len(cardsArr); i++ {
+
+	// }
+
+	for cardsDealt != len(cardsArr) {
+		if dealToIndex > len(cardsArr)-1 {
+			dealToIndex = dealToIndex % len(cardsArr)
+		}
+
+		newCardsArr[dealToIndex] = cardsArr[dealFromIndex]
+
+		dealToIndex += increment
+		dealFromIndex++
+		cardsDealt++
+	}
+
+	return newCardsArr
+}
+
+func dealIntoNewStack(cardsArr []int64) []int64 {
+	var newCardsArr []int64
+	for cardIndex := range cardsArr {
+		cardFromBack := cardsArr[(len(cardsArr)-1)-cardIndex]
+		newCardsArr = append(newCardsArr, cardFromBack)
+	}
+
+	return newCardsArr
+}
+
+func runInstructionsForCards(cardsArr []int64, cardShuffleInstructions []cardShuffleInstruction) []int64 {
+	for _, instruction := range cardShuffleInstructions {
+		switch instruction.instructionType {
+		case "cut":
+			fmt.Println("Cutting")
+			cardsArr = cutDeck(cardsArr, instruction.value)
+		case "deal with increment":
+			fmt.Println("Incrementing")
+			cardsArr = dealWithIncrement(cardsArr, instruction.value)
+		case "deal into new stack":
+			fmt.Println("Reversing")
+			cardsArr = dealIntoNewStack(cardsArr)
+		}
+	}
+	return cardsArr
+}
+
+func fillCards(cardsArr []int64) []int64 {
+	for i := range cardsArr {
+		cardsArr[i] = int64(i)
+	}
+	return cardsArr
+}
+
+func day22() {
+	file, err := os.Open("day22CardShuffleInstructions.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	var cardShuffleInstructions []cardShuffleInstruction
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		instructinoString := scanner.Text()
+		instructionArr := strings.Split(instructinoString, " ")
+		lastElementIndex := len(instructionArr) - 1
+		var newCardShuffleInstruction cardShuffleInstruction
+
+		if instructionArr[lastElementIndex] == "stack" {
+			newCardShuffleInstruction.instructionType = instructinoString
+			newCardShuffleInstruction.value = -1
+		} else {
+			newCardShuffleInstruction.instructionType = strings.Join(instructionArr[:lastElementIndex], " ")
+			value, _ := strconv.Atoi(instructionArr[lastElementIndex])
+			newCardShuffleInstruction.value = value
+		}
+		cardShuffleInstructions = append(cardShuffleInstructions, newCardShuffleInstruction)
+	}
+
+	var part1Deck = make([]int64, 10007)
+	part1Deck = fillCards(part1Deck)
+	var card2019Pos = 0
+
+	part1Deck = runInstructionsForCards(part1Deck, cardShuffleInstructions)
+	for index, card := range part1Deck {
+		if card == 2019 {
+			card2019Pos = index
+		}
+	}
+
+	fmt.Println("Positon of card 2019:", card2019Pos)
+
+	var part2Deck = make([]int64, 119315717514047)
+	part2Deck = fillCards(part2Deck)
+	var card2020Pos = 0
+	var repeatInstructionsForAmount int64 = 101741582076661
+	var extendedCardShuffleInstructions []cardShuffleInstruction
+
+	var currentRepeatNum int64
+	for currentRepeatNum = 0; currentRepeatNum < repeatInstructionsForAmount; currentRepeatNum++ {
+		extendedCardShuffleInstructions = append(extendedCardShuffleInstructions, cardShuffleInstructions...)
+	}
+
+	part2Deck = runInstructionsForCards(part2Deck, extendedCardShuffleInstructions)
+	for index, card := range part2Deck {
+		if card == 2020 {
+			card2020Pos = index
+		}
+	}
+
+	fmt.Println("Positon of card 2020 with extendedInstructions:", card2020Pos)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
