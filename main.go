@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"log"
 	"math"
+	"math/big"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -1068,7 +1069,7 @@ func xyzPointsInArray(a []xyzPoint, b [][]xyzPoint) int {
 	return -1
 }
 
-func greatestCommonDenominator(a, b int64) int64 {
+func greatestCommonDivisor(a, b int64) int64 {
 	for b != 0 {
 		temp := b
 		b = a % b
@@ -1079,7 +1080,7 @@ func greatestCommonDenominator(a, b int64) int64 {
 
 func leastCommonMultiple(a, b int64) int64 {
 	// I dont do (a*b) / gcd(a,b) becuase gcd(a,b) is a divisor of both a and b, so this is more efficient
-	return (a / greatestCommonDenominator(a, b)) * b
+	return (a / greatestCommonDivisor(a, b)) * b
 }
 
 func day12() {
@@ -2341,6 +2342,7 @@ func day20() {
 	var leftAndTopEdgeOffset int64 = 2
 	var rightEdgeOffset int64 = width - 2
 	var bottomEdgeOffset int64 = height - 2
+	var lowestLevel int64 = 0
 
 	var xyzStartPos = xyzPoint{teleMap["AA"].pointA.x, teleMap["AA"].pointA.y, 0}
 
@@ -2371,10 +2373,12 @@ func day20() {
 					if teleName == "ZZ" {
 						// fmt.Println("Found zz at level:", dirPoint.z)
 						if point.z == 0 {
-							fmt.Println("Found end of maze with levels")
+							fmt.Println("Found end of maze with levels...")
 							currentParent := xyzBreadthFirstMap[dirPoint]
 							for currentParent != (xyzPoint{-1, -1, 0}) {
-
+								if currentParent.z > lowestLevel {
+									lowestLevel = currentParent.z
+								}
 								shortestPathWithLevels = append(shortestPathWithLevels, currentParent)
 
 								currentParent = xyzBreadthFirstMap[currentParent]
@@ -2433,6 +2437,7 @@ func day20() {
 
 	fmt.Println("Shortest path steps without levels:", len(shortestPathWithoutLevels))
 	fmt.Println("Shortest path steps with levels:", len(shortestPathWithLevels))
+	fmt.Println("Deepest level shortest path goes to:", lowestLevel)
 
 }
 
@@ -2522,32 +2527,27 @@ func day21() {
 
 type cardShuffleInstruction struct {
 	instructionType string
-	value           int
+	value           int64
 }
 
-func cutDeck(cardsArr []int64, numToCut int) []int64 {
+func cutDeck(cardsArr []int64, numToCut int64) []int64 {
 	var newCardsArr []int64
 	if numToCut > 0 {
 		newCardsArr = append(newCardsArr, cardsArr[numToCut:]...)
 		newCardsArr = append(newCardsArr, cardsArr[:numToCut]...)
 	} else {
-		numToCut = int(Abs(int64(numToCut)))
-		newCardsArr = append(newCardsArr, cardsArr[len(cardsArr)-numToCut:]...)
-		newCardsArr = append(newCardsArr, cardsArr[:len(cardsArr)-numToCut]...)
+		numToCut = Abs(numToCut)
+		newCardsArr = append(newCardsArr, cardsArr[int64(len(cardsArr))-numToCut:]...)
+		newCardsArr = append(newCardsArr, cardsArr[:int64(len(cardsArr))-numToCut]...)
 	}
 	return newCardsArr
 }
 
-func dealWithIncrement(cardsArr []int64, increment int) []int64 {
+func dealWithIncrement(cardsArr []int64, increment int64) []int64 {
 	var newCardsArr = make([]int64, len(cardsArr))
 	var cardsDealt = 0
 	var dealFromIndex = 0
 	var dealToIndex = 0
-
-	// //Set all cards to -1 to know if all cards have been dealt
-	// for i := 0; i < len(cardsArr); i++ {
-
-	// }
 
 	for cardsDealt != len(cardsArr) {
 		if dealToIndex > len(cardsArr)-1 {
@@ -2556,7 +2556,7 @@ func dealWithIncrement(cardsArr []int64, increment int) []int64 {
 
 		newCardsArr[dealToIndex] = cardsArr[dealFromIndex]
 
-		dealToIndex += increment
+		dealToIndex += int(increment)
 		dealFromIndex++
 		cardsDealt++
 	}
@@ -2578,13 +2578,10 @@ func runInstructionsForCards(cardsArr []int64, cardShuffleInstructions []cardShu
 	for _, instruction := range cardShuffleInstructions {
 		switch instruction.instructionType {
 		case "cut":
-			fmt.Println("Cutting")
 			cardsArr = cutDeck(cardsArr, instruction.value)
 		case "deal with increment":
-			fmt.Println("Incrementing")
 			cardsArr = dealWithIncrement(cardsArr, instruction.value)
 		case "deal into new stack":
-			fmt.Println("Reversing")
 			cardsArr = dealIntoNewStack(cardsArr)
 		}
 	}
@@ -2596,6 +2593,29 @@ func fillCards(cardsArr []int64) []int64 {
 		cardsArr[i] = int64(i)
 	}
 	return cardsArr
+}
+
+func invMod(x, c *big.Int) *big.Int {
+	exponent := big.NewInt(0).Sub(c, big.NewInt(2))
+	inverseValue := big.NewInt(0).Exp(x, exponent, c)
+	return inverseValue
+}
+
+func runInstructionsForLargeAmountsOfCards(incrementRate, offset, numberOfCards *big.Int,
+	cardShuffleInstructions []cardShuffleInstruction) (*big.Int, *big.Int) {
+	for _, instruction := range cardShuffleInstructions {
+		switch instruction.instructionType {
+		case "cut":
+			offset.Add(offset, big.NewInt(0).Mul(incrementRate, big.NewInt(instruction.value)))
+		case "deal with increment":
+
+			incrementRate.Mul(incrementRate, invMod(big.NewInt(instruction.value), numberOfCards))
+		case "deal into new stack":
+			offset.Sub(offset, incrementRate)
+			incrementRate.Neg(incrementRate)
+		}
+	}
+	return incrementRate, offset
 }
 
 func day22() {
@@ -2620,7 +2640,7 @@ func day22() {
 			newCardShuffleInstruction.value = -1
 		} else {
 			newCardShuffleInstruction.instructionType = strings.Join(instructionArr[:lastElementIndex], " ")
-			value, _ := strconv.Atoi(instructionArr[lastElementIndex])
+			value, _ := strconv.ParseInt(instructionArr[lastElementIndex], 10, 64)
 			newCardShuffleInstruction.value = value
 		}
 		cardShuffleInstructions = append(cardShuffleInstructions, newCardShuffleInstruction)
@@ -2639,25 +2659,27 @@ func day22() {
 
 	fmt.Println("Positon of card 2019:", card2019Pos)
 
-	var part2Deck = make([]int64, 119315717514047)
-	part2Deck = fillCards(part2Deck)
-	var card2020Pos = 0
-	var repeatInstructionsForAmount int64 = 101741582076661
-	var extendedCardShuffleInstructions []cardShuffleInstruction
+	var part2DeckSize = big.NewInt(119315717514047)
+	var repeatInstructionAmount = big.NewInt(101741582076661)
+	var incrementRate = big.NewInt(1)
+	var offset = big.NewInt(0)
+	var cardAtPos = big.NewInt(2020)
 
-	var currentRepeatNum int64
-	for currentRepeatNum = 0; currentRepeatNum < repeatInstructionsForAmount; currentRepeatNum++ {
-		extendedCardShuffleInstructions = append(extendedCardShuffleInstructions, cardShuffleInstructions...)
-	}
+	incrementRate, offset = runInstructionsForLargeAmountsOfCards(incrementRate, offset, part2DeckSize,
+		cardShuffleInstructions)
 
-	part2Deck = runInstructionsForCards(part2Deck, extendedCardShuffleInstructions)
-	for index, card := range part2Deck {
-		if card == 2020 {
-			card2020Pos = index
-		}
-	}
+	negativeIncrementRate := big.NewInt(0).Sub(big.NewInt(1), incrementRate)
+	inveseNegativeIncrementRate := invMod(negativeIncrementRate, part2DeckSize)
+	offset.Mul(offset, inveseNegativeIncrementRate)
+	incrementRate.Exp(incrementRate, repeatInstructionAmount, part2DeckSize)
+	cardAtPos.Mul(cardAtPos, incrementRate)
+	negativeIncrementRate = big.NewInt(0).Sub(big.NewInt(1), incrementRate)
+	offset.Mul(offset, negativeIncrementRate)
+	cardAtPos.Add(cardAtPos, offset)
+	cardAtPos.Mod(cardAtPos, part2DeckSize)
+	var cardAt2020 = cardAtPos.String()
 
-	fmt.Println("Positon of card 2020 with extendedInstructions:", card2020Pos)
+	fmt.Println("Card at position 2020 with extended instructions:", cardAt2020)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
