@@ -75,6 +75,8 @@ func main() {
 		day22()
 	case 23:
 		day23()
+	case 24:
+		day24()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -2441,6 +2443,7 @@ func day20() {
 	fmt.Println("Shortest path steps without levels:", len(shortestPathWithoutLevels))
 	fmt.Println("Shortest path steps with levels:", len(shortestPathWithLevels))
 	fmt.Println("Deepest level shortest path goes to:", lowestLevel)
+	fmt.Println("Number of teleporters:", len(teleMap))
 
 }
 
@@ -2838,6 +2841,106 @@ func day23() {
 	firstYRepeatedTwiceInARow = <-localReceive
 	fmt.Println("First Y value received at networkID 255:", firstYReceived)
 	fmt.Println("First Y value sent to networkID 0 from NAT system twice in a row:", firstYRepeatedTwiceInARow)
+}
+
+type BugTile struct {
+	biodiversityRating int64
+	adjacentBugCount   int64
+	tile               string
+	hasBug             bool
+}
+
+func day24() {
+	file, err := os.Open("day24BugData.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	var bugMap = make(map[Point]BugTile)
+	scanner := bufio.NewScanner(file)
+
+	var x, y, width, height, currentBiodiversityRatingCount int64
+	for scanner.Scan() {
+		line := scanner.Text()
+		for _, char := range line {
+			if x > width {
+				width = x
+			}
+			if y > height {
+				height = y
+			}
+			var newBugTile BugTile
+			newBugTile.biodiversityRating = int64(math.Pow(2, float64(currentBiodiversityRatingCount)))
+			newBugTile.tile = string(char)
+			if char == '#' {
+				newBugTile.hasBug = true
+			}
+			bugMap[Point{x, y}] = newBugTile
+			currentBiodiversityRatingCount++
+			x++
+		}
+		x = 0
+		y++
+	}
+
+	var availableDirs = []int64{NORTH, SOUTH, WEST, EAST}
+	var previousLayoutsMap = make(map[string]bool)
+	var biodiversityRatingOfFirstDoubleLayout int64
+
+	var foundDoubleBioRating = false
+	for !foundDoubleBioRating {
+		var layoutString = ""
+		var totalBioDiversityRating int64 = 0
+		for y = 0; y <= height; y++ {
+			for x = 0; x <= width; x++ {
+				bugTile := bugMap[Point{x, y}]
+				layoutString += bugTile.tile
+
+				if bugTile.hasBug {
+					totalBioDiversityRating += bugTile.biodiversityRating
+				}
+
+				bugTile.adjacentBugCount = 0
+				for _, dir := range availableDirs {
+					checkBugPoint := getPointForDirection(dir, Point{x, y})
+					if bugMap[checkBugPoint].hasBug {
+						bugTile.adjacentBugCount++
+					}
+				}
+				bugMap[Point{x, y}] = bugTile
+			}
+		}
+
+		if previousLayoutsMap[layoutString] == true {
+			biodiversityRatingOfFirstDoubleLayout = totalBioDiversityRating
+			foundDoubleBioRating = true
+		} else {
+			previousLayoutsMap[layoutString] = true
+
+			for y = 0; y <= height; y++ {
+				for x = 0; x <= width; x++ {
+					bugTile := bugMap[Point{x, y}]
+					if bugTile.hasBug {
+						if bugTile.adjacentBugCount != 1 {
+							bugTile.tile = "."
+							bugTile.hasBug = false
+						}
+					} else {
+						if bugTile.adjacentBugCount == 1 || bugTile.adjacentBugCount == 2 {
+							bugTile.tile = "#"
+							bugTile.hasBug = true
+						}
+					}
+					bugMap[Point{x, y}] = bugTile
+				}
+			}
+		}
+
+	}
+
+	fmt.Println("Biodiversity rating of first layout that appears twice:", biodiversityRatingOfFirstDoubleLayout)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
