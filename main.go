@@ -2859,6 +2859,8 @@ func day24() {
 	defer file.Close()
 
 	var bugMap = make(map[Point]BugTile)
+	var levelMap = make(map[int64]map[Point]BugTile)
+	levelMap[0] = make(map[Point]BugTile)
 	scanner := bufio.NewScanner(file)
 
 	var x, y, width, height, currentBiodiversityRatingCount int64
@@ -2878,6 +2880,7 @@ func day24() {
 				newBugTile.hasBug = true
 			}
 			bugMap[Point{x, y}] = newBugTile
+			levelMap[0][Point{x, y}] = newBugTile
 			currentBiodiversityRatingCount++
 			x++
 		}
@@ -2887,7 +2890,9 @@ func day24() {
 
 	var availableDirs = []int64{NORTH, SOUTH, WEST, EAST}
 	var previousLayoutsMap = make(map[string]bool)
+
 	var biodiversityRatingOfFirstDoubleLayout int64
+	var bugsPressentAfter200Minutes int64
 
 	var foundDoubleBioRating = false
 	for !foundDoubleBioRating {
@@ -2918,7 +2923,6 @@ func day24() {
 			foundDoubleBioRating = true
 		} else {
 			previousLayoutsMap[layoutString] = true
-
 			for y = 0; y <= height; y++ {
 				for x = 0; x <= width; x++ {
 					bugTile := bugMap[Point{x, y}]
@@ -2940,7 +2944,129 @@ func day24() {
 
 	}
 
+	// Part 2 stuff
+	// I make these maps so that I can get the adjacent bugs for them,
+	// and the other levels should be handled from there
+	levelMap[-1] = make(map[Point]BugTile)
+	levelMap[1] = make(map[Point]BugTile)
+
+	// Width and height are the edges, not a count of the items on each axis,
+	// and the grid starts at 0, so I dont need to subtract 1 for an offset.
+	hole := Point{width / 2, height / 2}
+	var minutesPassed = 0
+	for minutesPassed <= 200 {
+		for level, levelBugMap := range levelMap {
+			if levelMap[level-1] == nil {
+				levelMap[level-1] = make(map[Point]BugTile)
+			}
+			if levelMap[level+1] == nil {
+				levelMap[level+1] = make(map[Point]BugTile)
+			}
+			for y = 0; y <= height; y++ {
+				for x = 0; x <= width; x++ {
+					bugTile := levelBugMap[Point{x, y}]
+					bugPoint := Point{x, y}
+					bugTile.adjacentBugCount = 0
+
+					if bugPoint != hole {
+						for _, dir := range availableDirs {
+							checkBugPoint := getPointForDirection(dir, bugPoint)
+							// Handle outside edges
+							if checkBugPoint.x == -1 {
+								if levelMap[level-1][Point{hole.x - 1, hole.y}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+							} else if checkBugPoint.y == -1 {
+								if levelMap[level-1][Point{hole.x, hole.y - 1}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+
+							} else if checkBugPoint.x == width+1 {
+								if levelMap[level-1][Point{hole.x + 1, hole.y}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+							} else if checkBugPoint.y == width+1 {
+								if levelMap[level-1][Point{hole.x, hole.y + 1}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+							}
+
+							// Handle inside edges.
+							var checkX, checkY int64
+							if bugPoint == (Point{hole.x - 1, hole.y}) && checkBugPoint == hole {
+								for checkY = 0; checkY <= height; checkY++ {
+									if levelMap[level+1][Point{0, checkY}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							} else if bugPoint == (Point{hole.x, hole.y - 1}) && checkBugPoint == hole {
+								for checkX = 0; checkX <= width; checkX++ {
+									if levelMap[level+1][Point{checkX, 0}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							} else if bugPoint == (Point{hole.x + 1, hole.y}) && checkBugPoint == hole {
+								for checkY = 0; checkY <= height; checkY++ {
+									if levelMap[level+1][Point{width, checkY}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							} else if bugPoint == (Point{hole.x, hole.y + 1}) && checkBugPoint == hole {
+								for checkX = 0; checkX <= width; checkX++ {
+									if levelMap[level+1][Point{checkX, height}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							}
+
+							// Handle everything else
+							if levelBugMap[checkBugPoint].hasBug {
+								bugTile.adjacentBugCount++
+							}
+						}
+					}
+					levelBugMap[Point{x, y}] = bugTile
+				}
+			}
+		}
+
+		if minutesPassed == 200 {
+			for _, levelBugMap := range levelMap {
+				for y = 0; y <= height; y++ {
+					for x = 0; x <= width; x++ {
+						bugTile := levelBugMap[Point{x, y}]
+						if bugTile.hasBug {
+							bugsPressentAfter200Minutes++
+						}
+					}
+				}
+			}
+		} else {
+			for _, levelBugMap := range levelMap {
+				for y = 0; y <= height; y++ {
+					for x = 0; x <= width; x++ {
+						bugTile := levelBugMap[Point{x, y}]
+						if bugTile.hasBug {
+							if bugTile.adjacentBugCount != 1 {
+								bugTile.tile = "."
+								bugTile.hasBug = false
+							}
+						} else {
+							if bugTile.adjacentBugCount == 1 || bugTile.adjacentBugCount == 2 {
+								bugTile.tile = "#"
+								bugTile.hasBug = true
+							}
+						}
+						levelBugMap[Point{x, y}] = bugTile
+					}
+				}
+			}
+		}
+		minutesPassed++
+	}
+
 	fmt.Println("Biodiversity rating of first layout that appears twice:", biodiversityRatingOfFirstDoubleLayout)
+	fmt.Println("Bugs present after 200 minutes:", bugsPressentAfter200Minutes)
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
