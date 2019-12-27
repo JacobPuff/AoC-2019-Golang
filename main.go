@@ -77,6 +77,8 @@ func main() {
 		day23()
 	case 24:
 		day24()
+	case 25:
+		day25()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -1926,7 +1928,7 @@ func day18() {
 	var doors = make(map[string]bool)
 	var keys = make(map[string]bool)
 	var x, y int64
-	var currentPos Point
+	var startPos Point
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -1935,7 +1937,7 @@ func day18() {
 			if line[index] == '@' {
 				// mazeMap[Point{x - 1, y}] = droidTile{"#", false}
 				// mazeMap[Point{x + 1, y}] = droidTile{"#", false}
-				currentPos = Point{x, y}
+				startPos = Point{x, y}
 			}
 			if line[index] != '#' && line[index] != '@' && line[index] != '.' {
 				stringChar := string(line[index])
@@ -1955,178 +1957,7 @@ func day18() {
 		x = 0
 		y++
 	}
-
-	var listOfRoutes []Route
-	var startRoute Route
-	var shortestRouteSteps = math.MaxInt64
-	// Set start route data
-	startRoute.pos = currentPos
-	startRoute.length = 0
-	startRoute.routeName = "@"
-	startRoute.prevPoints = make(map[string]bool)
-	startRoute.prevPoints["@"] = true
-	// Make a map to memoize things
-	prevPathsCalculated := make(map[string]keyDoorPath)
-
-	listOfRoutes = getRoutesFromStartRoute(startRoute, prevPathsCalculated, mazeMap, doors, keys)
-
-	for _, route := range listOfRoutes {
-		if route.length < shortestRouteSteps {
-			shortestRouteSteps = route.length
-		}
-	}
-	fmt.Println("Shortest path for part 1:", shortestRouteSteps)
-	fmt.Println("Key len:", len(keys))
-	// testKeyDoorPath := getDistanceAndDoorsBetweenPointAndKey(currentPos, "d", mazeMap, doors)
-	// fmt.Printf("(Start: {x: %d, y: %d}, End: {x: %d, y: %d}, Length: %d, "+
-	// 	"StartName: %s, EndName: %s, doorsBetween: %v)\n", testKeyDoorPath.startPos.x, testKeyDoorPath.startPos.y,
-	// 	testKeyDoorPath.endPos.x, testKeyDoorPath.endPos.y, testKeyDoorPath.length, testKeyDoorPath.startName,
-	// 	testKeyDoorPath.endName, testKeyDoorPath.doorsBetween)
-	// testKeyDoorPath = getDistanceAndDoorsBetweenPointAndKey(Point{currentPos.x + 6, currentPos.y}, "f", mazeMap, doors)
-	// fmt.Printf("(Start: {x: %d, y: %d}, End: {x: %d, y: %d}, Length: %d, "+
-	// 	"StartName: %s, EndName: %s, doorsBetween: %v)\n", testKeyDoorPath.startPos.x, testKeyDoorPath.startPos.y,
-	// 	testKeyDoorPath.endPos.x, testKeyDoorPath.endPos.y, testKeyDoorPath.length, testKeyDoorPath.startName,
-	// 	testKeyDoorPath.endName, testKeyDoorPath.doorsBetween)
 }
-
-func canReachKey(route Route, path keyDoorPath) bool {
-	var canReachKey bool = true
-	for _, door := range path.doorsBetween {
-		if !route.prevPoints[strings.ToLower(door)] {
-			canReachKey = false
-		}
-	}
-	return canReachKey
-}
-
-func getRoutesFromStartRoute(fromRoute Route, prevPathsCalculated map[string]keyDoorPath, mazeMap map[Point]droidTile, doors map[string]bool, keys map[string]bool) []Route {
-	// Get all keys that the route doesnt have,
-	// check if we've done calculation to that key from the route position before
-	//
-	// if we have, and we have all the keys for the doors,
-	//    add key and length to route
-	// if we haven't
-	//    search for that key in a breadth first search,
-	//    cache result, and add it to the route
-	var listOfRoutes []Route
-
-	var route Route = Route{"", Point{0, 0}, 0, make(map[string]bool)}
-	//Make new route instead of reference
-	route.pos = fromRoute.pos
-	route.length = fromRoute.length
-	route.routeName = fromRoute.routeName
-	// Copy prevPoints so its not a reference
-	for key, val := range fromRoute.prevPoints {
-		route.prevPoints[key] = val
-	}
-
-	for key := range keys {
-		if !route.prevPoints[key] {
-
-			cacheString := fmt.Sprintf("({x: %d, y: %d}, key: %s)", route.pos.x, route.pos.y, key)
-			// fmt.Println(cacheString, route.routeName)
-			// I used length to see if a value existed because it has a default of 0,
-			// and its easy to understand that there shouldnt be a length of 0.
-			var pathToKey keyDoorPath
-			if prevPathsCalculated[cacheString].length != 0 {
-				pathToKey = prevPathsCalculated[cacheString]
-			} else {
-				pathToKey = getDistanceAndDoorsBetweenPointAndKey(route.pos, key, mazeMap, doors, keys)
-				prevPathsCalculated[cacheString] = pathToKey
-			}
-			// fmt.Println("KEY NUM:", keyNum, "KEY:", key)
-			// keyNum++
-
-			if canReachKey(route, pathToKey) {
-				route.routeName += key
-				for _, keyName := range pathToKey.keysBetween {
-					route.prevPoints[keyName] = true
-				}
-				route.prevPoints[key] = true
-				route.length += pathToKey.length
-				route.pos = pathToKey.endPos
-				newListOfRoutes := getRoutesFromStartRoute(route, prevPathsCalculated, mazeMap, doors, keys)
-				listOfRoutes = append(listOfRoutes, newListOfRoutes...)
-			}
-		}
-	}
-
-	var hasAllKeys = true
-	for key := range keys {
-		if route.prevPoints[key] == false {
-			hasAllKeys = false
-		}
-	}
-	if hasAllKeys {
-		fmt.Println("finished route", route.routeName, len(route.prevPoints), route.length)
-		listOfRoutes = append(listOfRoutes, route)
-	}
-	return listOfRoutes
-}
-
-func getDistanceAndDoorsBetweenPointAndKey(startPoint Point, key string, mazeMap map[Point]droidTile, doors map[string]bool, keys map[string]bool) keyDoorPath {
-	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
-	var canGoToQueue []Point
-	// var localDist int = 0
-	canGoToQueue = append(canGoToQueue, startPoint)
-	var mazeCopy = make(map[Point]droidTile)
-	// Copy mazeMap
-	for key, val := range mazeMap {
-		mazeCopy[key] = val
-	}
-	// Use point and return parent of that point
-	var breadthFirstSearchTree = make(map[Point]Point)
-	//Set start point to traveled so its parent isnt overwritten
-	mazeCopy[startPoint] = droidTile{mazeCopy[startPoint].tile, true}
-	breadthFirstSearchTree[startPoint] = Point{-1, -1}
-
-	var keyDoorPathToReturn keyDoorPath
-	keyDoorPathToReturn.startPos = startPoint
-	keyDoorPathToReturn.startName = mazeCopy[startPoint].tile
-	keyDoorPathToReturn.endName = key
-
-	for len(canGoToQueue) != 0 {
-		var currentQueue = make([]Point, len(canGoToQueue))
-		copy(currentQueue, canGoToQueue)
-		canGoToQueue = []Point{}
-		for _, point := range currentQueue {
-			for _, dir := range availableDirs {
-				dirPoint := getPointForDirection(dir, point)
-				dirTile := mazeCopy[dirPoint]
-				currentParent := point
-
-				if dirTile.tile == key {
-					//fmt.Println("found key", dirTile.tile)
-					keyDoorPathToReturn.endPos = dirPoint
-					for currentParent != (Point{-1, -1}) {
-						parentTile := mazeCopy[currentParent]
-						if doors[mazeCopy[currentParent].tile] {
-							keyDoorPathToReturn.doorsBetween = append(keyDoorPathToReturn.doorsBetween, parentTile.tile)
-						}
-						// Add all keys along the way
-						if keys[mazeCopy[currentParent].tile] {
-							keyDoorPathToReturn.keysBetween = append(keyDoorPathToReturn.keysBetween, parentTile.tile)
-						}
-						keyDoorPathToReturn.length++
-						currentParent = breadthFirstSearchTree[currentParent]
-					}
-					return keyDoorPathToReturn
-				}
-
-				if dirTile.tile != "#" && dirTile.tile != "" && !dirTile.traveled {
-					breadthFirstSearchTree[dirPoint] = currentParent
-					dirTile.traveled = true
-					mazeCopy[dirPoint] = dirTile
-					canGoToQueue = append(canGoToQueue, dirPoint)
-				}
-			}
-		}
-	}
-	//It shouldn't get to this point if a key exists
-	keyDoorPathToReturn.endName = "ERROR"
-	return keyDoorPathToReturn
-}
-
 func tractorBeamDroneIOHandlers(x, y int64) (inputHandler, outputHandler, func() bool) {
 	var sentX bool = false
 	var pulled = false
@@ -3067,6 +2898,81 @@ func day24() {
 
 	fmt.Println("Biodiversity rating of first layout that appears twice:", biodiversityRatingOfFirstDoubleLayout)
 	fmt.Println("Bugs present after 200 minutes:", bugsPressentAfter200Minutes)
+}
+
+func adventureGameIOHandlers() (inputHandler, outputHandler) {
+	var command string
+	var currentCommandIndex int = 0
+	var haveCommandToSend bool = false
+	in := func() int64 {
+		for {
+			if !haveCommandToSend {
+				var input string = ""
+				scanner := bufio.NewScanner(os.Stdin)
+				scanner.Scan()
+				input = scanner.Text()
+				input = strings.ToLower(input)
+				if input == "-h" || input == "help" || input == "?" {
+					fmt.Println("You can use commands 'north', 'south', 'east', 'west' to move the droid")
+					fmt.Println("You can use commands 'take (item)' and 'drop (item)' to add and remove items from your inventory")
+					fmt.Println("You can use 'inv' to list everything in your inventory")
+				} else if input != "" {
+					command = input
+					haveCommandToSend = true
+				}
+			} else {
+				if currentCommandIndex == len(command) {
+					currentCommandIndex = 0
+					haveCommandToSend = false
+					return NEWLINE
+				}
+				if string(command[currentCommandIndex]) == " " {
+					currentCommandIndex++
+					return SPACE
+				}
+				asciiNumChar := int64(command[currentCommandIndex])
+				currentCommandIndex++
+
+				return asciiNumChar
+			}
+		}
+	}
+
+	out := func(output int64) {
+		fmt.Print(string(output))
+	}
+
+	return in, out
+}
+
+func day25() {
+	file, err := os.Open("day25IntCodeAdventureGameInput.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Scan()
+	adventureGameIntCodeString := scanner.Text()
+	adventureGameIntCodeStringArr := strings.Split(adventureGameIntCodeString, ",")
+	var adventureGameIntCodeArr []int64
+	for _, stringIntCode := range adventureGameIntCodeStringArr {
+		intCode, _ := strconv.ParseInt(stringIntCode, 10, 64)
+		adventureGameIntCodeArr = append(adventureGameIntCodeArr, intCode)
+	}
+	adventureGameIntCodeProgram := makeMapForArray(adventureGameIntCodeArr)
+	in, out := adventureGameIOHandlers()
+	intComp(adventureGameIntCodeProgram, in, out)
+
+	/*
+		Needed Items:
+		ornament
+		easter egg
+		hypercube
+		monolith
+	*/
+
 }
 
 var asteroidsData = `.#......##.#..#.......#####...#..
