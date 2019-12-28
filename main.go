@@ -1899,10 +1899,9 @@ func day17() {
 }
 
 type Route struct {
-	routeName  string
-	pos        Point
-	length     int
-	prevPoints map[string]bool
+	routeName string
+	pos       Point
+	length    int
 }
 
 type keyDoorPath struct {
@@ -1913,6 +1912,60 @@ type keyDoorPath struct {
 	endName      string
 	doorsBetween []string
 	keysBetween  []string
+}
+
+func distancesFrom(source Point, mazeMap map[Point]droidTile, keys, doors map[string]bool) map[string]Route {
+	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
+	var mazeCopy = make(map[Point]droidTile)
+	for key, val := range mazeMap {
+		mazeCopy[key] = val
+	}
+	routeInfo := make(map[string]Route)
+
+	var queue = []Route{Route{"", source, 0}}
+	for routeIndex := 0; routeIndex < len(queue); routeIndex++ {
+		route := queue[routeIndex]
+		tileAtPos := mazeCopy[route.pos]
+		if (keys[tileAtPos.tile] || doors[tileAtPos.tile]) && route.length != 0 {
+			// fmt.Println(tileAtPos.tile, "found at distance", route.length, "with route:", route.routeName)
+			routeInfo[tileAtPos.tile] = route
+			route.routeName += tileAtPos.tile
+		}
+		tileAtPos.traveled = true
+		mazeCopy[route.pos] = tileAtPos
+
+		for _, dir := range availableDirs {
+			dirPoint := getPointForDirection(dir, route.pos)
+			dirTile := mazeCopy[dirPoint]
+			if dirTile.tile != "#" && !dirTile.traveled {
+				queue = append(queue, Route{route.routeName, dirPoint, route.length + 1})
+			}
+		}
+	}
+	return routeInfo
+}
+
+func findRouteInfo(width, height int64, mazeMap map[Point]droidTile, keys, doors map[string]bool) map[string]map[string]Route {
+	routeInfo := make(map[string]map[string]Route)
+	var x, y int64
+	for y = 0; y < height; y++ {
+		for x = 0; x < width; x++ {
+			tileAtPos := mazeMap[Point{x, y}]
+			if keys[tileAtPos.tile] || tileAtPos.tile == "@" {
+				routeInfo[tileAtPos.tile] = distancesFrom(Point{x, y}, mazeMap, keys, doors)
+			}
+		}
+	}
+	return routeInfo
+}
+
+func canReachKey(currentKeys string, route Route) bool {
+	for _, routeItem := range route.routeName {
+		if !strings.Contains(currentKeys, string(routeItem)) && !strings.Contains(currentKeys, strings.ToLower(string(routeItem))) {
+			return false
+		}
+	}
+	return true
 }
 
 func day18() {
@@ -1927,18 +1980,12 @@ func day18() {
 	var mazeMap = make(map[Point]droidTile)
 	var doors = make(map[string]bool)
 	var keys = make(map[string]bool)
-	var x, y int64
-	var startPos Point
+	var x, y, width, height int64
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		for index := range line {
-			if line[index] == '@' {
-				// mazeMap[Point{x - 1, y}] = droidTile{"#", false}
-				// mazeMap[Point{x + 1, y}] = droidTile{"#", false}
-				startPos = Point{x, y}
-			}
 			if line[index] != '#' && line[index] != '@' && line[index] != '.' {
 				stringChar := string(line[index])
 				if stringChar == strings.ToUpper(stringChar) {
@@ -1952,12 +1999,65 @@ func day18() {
 			if mazeMap[Point{x, y}].tile == "" {
 				mazeMap[Point{x, y}] = droidTile{string(line[index]), false}
 			}
+
+			// x and y start at 0, so add 1 to account for that.
+			if x >= width {
+				width = x + 1
+			}
+			if y >= height {
+				height = y + 1
+			}
 			x++
 		}
 		x = 0
 		y++
 	}
+
+	var part1ShortestSteps = math.MaxInt64
+	routeInfo := findRouteInfo(width, height, mazeMap, keys, doors)
+	// I cant use a struct with a map or an array in it as a key,
+	// so Im using a formatted string
+	infoStartString := "@:"
+	info := make(map[string]int)
+	info[infoStartString] = 0
+
+	for range keys {
+		newInfo := make(map[string]int)
+		for dataString, currentDist := range info {
+			currentLocation := string(dataString[0])
+			currentKeys := dataString[2:]
+			for newKey := range keys {
+				if !strings.Contains(currentKeys, newKey) {
+					route := routeInfo[currentLocation][newKey]
+					reachable := canReachKey(currentKeys, route)
+
+					if reachable {
+						newDistance := currentDist + route.length
+						newKeys := currentKeys + newKey
+						newKeysList := strings.Split(newKeys, "")
+						sort.Strings(newKeysList)
+						newKeys = strings.Join(newKeysList, "")
+						newDataString := newKey + ":" + newKeys
+
+						if newInfo[newDataString] == 0 || newDistance < newInfo[newDataString] {
+							newInfo[newDataString] = newDistance
+						}
+					}
+				}
+			}
+		}
+		info = newInfo
+	}
+
+	for _, distance := range info {
+		if distance < part1ShortestSteps {
+			part1ShortestSteps = distance
+		}
+	}
+	fmt.Println("There are", len(info), "final positions")
+	fmt.Println("Shortest steps for part 1:", part1ShortestSteps)
 }
+
 func tractorBeamDroneIOHandlers(x, y int64) (inputHandler, outputHandler, func() bool) {
 	var sentX bool = false
 	var pulled = false
