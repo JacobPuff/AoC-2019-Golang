@@ -1904,16 +1904,6 @@ type Route struct {
 	length    int
 }
 
-type keyDoorPath struct {
-	startPos     Point
-	endPos       Point
-	length       int
-	startName    string
-	endName      string
-	doorsBetween []string
-	keysBetween  []string
-}
-
 func distancesFrom(source Point, mazeMap map[Point]droidTile, keys, doors map[string]bool) map[string]Route {
 	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
 	var mazeCopy = make(map[Point]droidTile)
@@ -1986,6 +1976,10 @@ func day18() {
 	for scanner.Scan() {
 		line := scanner.Text()
 		for index := range line {
+			if line[index] == '@' {
+				// mazeMap[Point{x - 1, y}] = droidTile{"#", false}
+				// mazeMap[Point{x + 1, y}] = droidTile{"#", false}
+			}
 			if line[index] != '#' && line[index] != '@' && line[index] != '.' {
 				stringChar := string(line[index])
 				if stringChar == strings.ToUpper(stringChar) {
