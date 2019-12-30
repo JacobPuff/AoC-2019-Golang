@@ -1941,7 +1941,7 @@ func findRouteInfo(width, height int64, mazeMap map[Point]droidTile, keys, doors
 	for y = 0; y < height; y++ {
 		for x = 0; x < width; x++ {
 			tileAtPos := mazeMap[Point{x, y}]
-			if keys[tileAtPos.tile] || tileAtPos.tile == "@" {
+			if keys[tileAtPos.tile] || strings.Contains("@1234", tileAtPos.tile) {
 				routeInfo[tileAtPos.tile] = distancesFrom(Point{x, y}, mazeMap, keys, doors)
 			}
 		}
@@ -1970,6 +1970,7 @@ func day18() {
 	var mazeMap = make(map[Point]droidTile)
 	var doors = make(map[string]bool)
 	var keys = make(map[string]bool)
+	var startPos Point
 	var x, y, width, height int64
 	scanner := bufio.NewScanner(file)
 
@@ -1977,8 +1978,7 @@ func day18() {
 		line := scanner.Text()
 		for index := range line {
 			if line[index] == '@' {
-				// mazeMap[Point{x - 1, y}] = droidTile{"#", false}
-				// mazeMap[Point{x + 1, y}] = droidTile{"#", false}
+				startPos = Point{x, y}
 			}
 			if line[index] != '#' && line[index] != '@' && line[index] != '.' {
 				stringChar := string(line[index])
@@ -2024,7 +2024,6 @@ func day18() {
 				if !strings.Contains(currentKeys, newKey) {
 					route := routeInfo[currentLocation][newKey]
 					reachable := canReachKey(currentKeys, route)
-
 					if reachable {
 						newDistance := currentDist + route.length
 						newKeys := currentKeys + newKey
@@ -2048,8 +2047,78 @@ func day18() {
 			part1ShortestSteps = distance
 		}
 	}
-	fmt.Println("There are", len(info), "final positions")
+	part1FinalPositions := len(info)
+
+	// Going to put these here because both parts take a smol bit,
+	// and its good to know its doing something.
+	fmt.Println("There are", part1FinalPositions, "final positions for part 1")
 	fmt.Println("Shortest steps for part 1:", part1ShortestSteps)
+
+	// Set mazeMap up for part 2 with its four robots.
+	mazeMap[startPos] = droidTile{"#", false}
+	mazeMap[Point{startPos.x - 1, startPos.y}] = droidTile{"#", false}
+	mazeMap[Point{startPos.x + 1, startPos.y}] = droidTile{"#", false}
+	mazeMap[Point{startPos.x, startPos.y - 1}] = droidTile{"#", false}
+	mazeMap[Point{startPos.x, startPos.y + 1}] = droidTile{"#", false}
+
+	mazeMap[Point{startPos.x - 1, startPos.y - 1}] = droidTile{"1", false}
+	mazeMap[Point{startPos.x + 1, startPos.y - 1}] = droidTile{"2", false}
+	mazeMap[Point{startPos.x - 1, startPos.y + 1}] = droidTile{"3", false}
+	mazeMap[Point{startPos.x + 1, startPos.y + 1}] = droidTile{"4", false}
+	var part2ShortestSteps = math.MaxInt64
+	routeInfo = findRouteInfo(width, height, mazeMap, keys, doors)
+	// A more differenter formatted string
+	infoStartString = "1,2,3,4:"
+	info = make(map[string]int)
+	info[infoStartString] = 0
+	for range keys {
+		newInfo := make(map[string]int)
+		for dataString, currentDist := range info {
+			currentLocationsString := string(dataString[:7])
+			currentLocations := strings.Split(currentLocationsString, ",")
+			currentKeys := dataString[8:]
+			for newKey := range keys {
+				if !strings.Contains(currentKeys, newKey) {
+					for robot, currentLocation := range currentLocations {
+						if routeInfo[currentLocation][newKey].length != 0 {
+							route := routeInfo[currentLocation][newKey]
+							reachable := canReachKey(currentKeys, route)
+
+							if reachable {
+								newDistance := currentDist + route.length
+								// Get new sorted keys
+								newKeys := currentKeys + newKey
+								newKeysList := strings.Split(newKeys, "")
+								sort.Strings(newKeysList)
+								newKeys = strings.Join(newKeysList, "")
+
+								// Get new locations. Copy locations to a new list so its not a pointer.
+								newLocations := make([]string, len(currentLocations))
+								copy(newLocations, currentLocations)
+								newLocations[robot] = newKey
+								newLocationsString := strings.Join(newLocations, ",")
+								newDataString := newLocationsString + ":" + newKeys
+
+								if newInfo[newDataString] == 0 || newDistance < newInfo[newDataString] {
+									newInfo[newDataString] = newDistance
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		info = newInfo
+	}
+	for _, distance := range info {
+		if distance < part2ShortestSteps {
+			part2ShortestSteps = distance
+		}
+	}
+	part2FinalPositions := len(info)
+
+	fmt.Println("There are", part2FinalPositions, "final positions for part 2")
+	fmt.Println("Shortest steps for part 2:", part2ShortestSteps)
 }
 
 func tractorBeamDroneIOHandlers(x, y int64) (inputHandler, outputHandler, func() bool) {
